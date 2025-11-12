@@ -33,7 +33,8 @@
 - [ ] Create project folder structure
   ```
   project/
-  ├── data/              # Raw data files
+  ├── Train/             # Training data (sequences, labels, ontology)
+  ├── Test/              # Test sequences and taxon list
   ├── notebooks/         # Jupyter notebooks for exploration
   ├── src/               # Source code
   │   ├── data/          # Data processing scripts
