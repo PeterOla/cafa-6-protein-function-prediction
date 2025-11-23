@@ -93,14 +93,15 @@
 - [x] Calculate validation F1
 - [x] **F1 Score:** 0.1776 (Target: > 0.15)
 
-#### Baseline 3: K-mer + ML
-- [ ] Extract k-mer features
-- [ ] Train logistic regression
-- [ ] Predict on validation
-- [ ] Calculate validation F1
-- [ ] **F1 Score:** __________ (Target: > 0.25)
+#### Baseline 3: MLP on Embeddings
+- [x] Create PyTorch Dataset
+- [x] Define MLP Architecture
+- [x] Train on Top-2000 terms
+- [x] Evaluate with multiple thresholds
+- [x] **F1 Score:** 0.1672 (Threshold 0.10)
+- [x] **Expert Upgrade:** Asymmetric Loss + 5000 terms -> F1: 0.1617 (Threshold 0.5)
 
-**Best Baseline:** __________ with F1 = __________
+**Best Baseline (Updated):** ESM-2 Fine-Tuned (Asymmetric Loss) with F1 = 0.2331 (Threshold 0.40)
 
 **Notes:**
 ```
@@ -257,12 +258,14 @@
 |-------|----------|---------------|--------|
 | Frequency Baseline | 0.1412 | < 1 min | ✅ |
 | Embedding KNN | 0.1776 | ~3 hours (CPU) | ✅ |
+| MLP (Top-2000) | 0.1672 | ~3 mins (GPU) | ✅ |
 | K-mer + LogReg | | | ⬜ |
+| ESM-2 Fine-Tuned (Asym Loss) | 0.2331 | ~7.5 hours (GPU, 10 epochs) | ✅ |
 | CNN | | | ⬜ |
 | ProtBERT | | | ⬜ |
 | Ensemble | | | ⬜ |
 
-**Winner:** __________ with F1 = __________
+**Winner:** ESM-2 Fine-Tuned (Asym Loss) with F1 = 0.2331
 
 ---
 
@@ -284,9 +287,9 @@
 
 | Issue | Solution | Date |
 |-------|----------|------|
-| | | |
-| | | |
-| | | |
+| F1 Score = 0.0000 with fixed threshold 0.5 | Implemented adaptive threshold tuning (0.01-0.5 range). Optimal threshold found at 0.10 for BCE, 0.40 for Asymmetric Loss. | Nov 21, 2025 |
+| Class imbalance (5000 classes, ~6 positives/sample) causing poor learning | Replaced BCEWithLogitsLoss with AsymmetricLoss (gamma_neg=2.0, gamma_pos=1.0) to down-weight easy negatives. Improved F1 from 0.1806 → 0.2331 (+29% gain). | Nov 22, 2025 |
+| AsymmetricLoss exploding (loss=446) | Fixed return statement to use `.mean()` instead of `.sum()` to match BCE scale. | Nov 22, 2025 |
 | | | |
 
 ---
@@ -297,20 +300,26 @@
 ┌────────────────────────────────────────────────────────────┐
 │                                                            │
 │  What worked well:                                         │
-│  - ________________________________________________        │
-│  - ________________________________________________        │
+│  - Asymmetric Loss significantly improved F1 (+29%)        │
+│  - Adaptive threshold tuning (crucial for imbalanced data) │
+│  - Fine-tuning ESM-2 beats frozen embeddings + MLP         │
+│  - Early stopping prevented overfitting                    │
 │                                                            │
 │  What didn't work:                                         │
-│  - ________________________________________________        │
-│  - ________________________________________________        │
+│  - Fixed threshold 0.5 (too high for imbalanced data)      │
+│  - Standard BCE loss (treats all negatives equally)        │
+│  - Training frozen embeddings on MLP (limited capacity)    │
 │                                                            │
 │  What I would do differently:                              │
-│  - ________________________________________________        │
-│  - ________________________________________________        │
+│  - Start with larger model (ESM-2 35M) from the beginning  │
+│  - Use more GO terms (10k-15k instead of 5k)               │
+│  - Implement label propagation in loss function            │
 │                                                            │
 │  Key insights:                                             │
-│  - ________________________________________________        │
-│  - ________________________________________________        │
+│  - Class imbalance requires specialized loss functions     │
+│  - Threshold optimization is not optional—it's critical    │
+│  - Fine-tuning > Transfer Learning > Feature Engineering   │
+│  - GPU time well spent: 7.5 hours → 31% improvement        │
 │                                                            │
 └────────────────────────────────────────────────────────────┘
 ```

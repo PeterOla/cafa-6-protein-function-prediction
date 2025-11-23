@@ -16,6 +16,7 @@ sys.path.append(str(BASE_DIR / 'src'))
 from data.loaders import LabelLoader, SequenceLoader
 from data.datasets import ProteinEmbeddingDataset
 from models.architecture import EmbeddingMLP
+from training.loss import AsymmetricLoss
 from evaluation.metrics import calculate_f1_score
 
 def train_mlp():
@@ -25,7 +26,7 @@ def train_mlp():
     EPOCHS = 20
     HIDDEN_DIMS = [512, 256]
     DROPOUT = 0.3
-    TOP_N_TERMS = 2000 # Train on top 2000 most frequent terms for now
+    TOP_N_TERMS = 5000 # Increased to 5000
     
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     print(f"Using device: {device}")
@@ -68,7 +69,7 @@ def train_mlp():
     print(f"Selected {len(terms_list)} target terms.")
     
     # Save terms list for inference later
-    np.save(MODELS_DIR / "terms_list.npy", terms_list)
+    np.save(MODELS_DIR / "terms_list_expert.npy", terms_list)
     
     # 3. Create Datasets & Loaders
     train_dataset = ProteinEmbeddingDataset(train_embeds, train_ids, label_loader, terms_list)
@@ -82,13 +83,14 @@ def train_mlp():
     model = EmbeddingMLP(input_dim, len(terms_list), hidden_dims=HIDDEN_DIMS, dropout=DROPOUT)
     model = model.to(device)
     
-    criterion = nn.BCEWithLogitsLoss()
+    # Use Asymmetric Loss
+    criterion = AsymmetricLoss(gamma_neg=4, gamma_pos=0, clip=0.05)
     optimizer = optim.Adam(model.parameters(), lr=LR)
     
     # 5. Training Loop
     best_val_loss = float('inf')
     
-    print("Starting training...")
+    print("Starting training (Expert Mode)...")
     for epoch in range(EPOCHS):
         model.train()
         train_loss = 0
@@ -124,7 +126,7 @@ def train_mlp():
         # Save best
         if avg_val_loss < best_val_loss:
             best_val_loss = avg_val_loss
-            torch.save(model.state_dict(), MODELS_DIR / "mlp_best.pth")
+            torch.save(model.state_dict(), MODELS_DIR / "mlp_expert.pth")
             print("Saved best model.")
             
     print("Training complete.")
