@@ -102,6 +102,8 @@
 
 **Goal:** Push F1 from 0.2331 → 0.30+ using proven techniques
 
+**CRITICAL UPDATE (Nov 23):** Discovered that competition uses **per-aspect evaluation** (MF, BP, CC computed separately, then averaged). All previous F1 scores were computed incorrectly by mixing aspects. Notebooks 01-02 now fixed with correct CAFA metric. Need to re-run notebook 03-04 with per-aspect evaluation to get true baseline scores.
+
 ### Priority 1: Label Propagation ✅ COMPLETE
 **Expected Impact:** +0.02-0.04 F1  
 **Effort:** Low  
@@ -133,13 +135,23 @@ def propagate_predictions(predictions, go_graph):
 
 ---
 
-### Priority 2: Per-Aspect Thresholds (1 hour) 🔥
-**Expected Impact:** +0.01-0.02 F1  
+### Priority 2: Per-Aspect Evaluation + Thresholds (1 hour) 🔥🔥 **CRITICAL**
+**Expected Impact:** Unknown - current F1 scores may be inaccurate  
 **Effort:** Low  
-**Risk:** Low
+**Risk:** None
+
+**Status:** Evaluation metric fixed in notebooks 01-02. Need to:
+1. Apply same fix to notebooks 03-04
+2. Re-run all notebooks to get true per-aspect F1 scores
+3. Then tune separate thresholds for MF, BP, CC
 
 **Rationale:**
-Molecular Function (MF) terms might need threshold 0.45, whilst Cellular Component (CC) needs 0.35. One-size-fits-all threshold (0.40) is suboptimal.
+Competition computes F1 for MF, BP, CC separately, then averages. We were computing single F1 across all terms mixed together. Previous F1=0.2331 may not reflect true competition score.
+
+After getting correct per-aspect scores, tune thresholds separately:
+- Molecular Function (MF) might need threshold 0.45
+- Biological Process (BP) might need threshold 0.40  
+- Cellular Component (CC) might need threshold 0.35
 
 **Implementation:**
 ```python

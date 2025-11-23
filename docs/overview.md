@@ -46,14 +46,15 @@ Recommended order: Propagation → Thresholds → Ensemble → Larger model.
 ## 4a. ✅ Progress Checklist
 - [x] Data ingestion (01, 02, 03, 04)
 - [x] Exploratory data analysis (EDA) — DELETED
-- [x] Baselines: Frequency (01)
-- [x] Baselines: KNN (02)
+- [x] Baselines: Frequency (01) — **Per-aspect CAFA metric implemented**
+- [x] Baselines: KNN (02) — **Per-aspect CAFA metric implemented**
 - [x] Baselines: MLP — SKIPPED (underperformed KNN)
-- [x] Fine-tuning pipeline (ESM-2 8M) (03)
+- [x] Fine-tuning pipeline (ESM-2 8M) (03) — **Per-aspect CAFA metric implemented**
 - [x] Threshold optimisation (global sweep) (03)
 - [x] Asymmetric loss integration (03)
-- [x] Label propagation (ancestor add) (04)
-- [ ] Per-aspect thresholds (MF/BP/CC) (04 - to add)
+- [x] **Per-aspect evaluation (MF/BP/CC split)** — Competition metric now correctly implemented in ALL notebooks
+- [x] Label propagation (ancestor add) (04) — **Per-aspect CAFA metric implemented**
+- [ ] Per-aspect thresholds (MF/BP/CC) (04 - to add) — **Evaluation ready, need separate threshold tuning**
 - [ ] Simple ensemble (KNN + ESM) (05 - new notebook)
 - [ ] Larger backbone (ESM-2 35M) (03 - modify MODEL_NAME)
 - [ ] Expand GO vocabulary (10k terms) (03 - modify VOCAB_SIZE)
@@ -69,6 +70,8 @@ Recommended order: Propagation → Thresholds → Ensemble → Larger model.
 ---
 ## 4b. 📚 Plain-English Feature Cheatsheet
 > **Analogy:** Solving a crime with better clues & tools
+
+**CRITICAL:** Competition evaluates **three subontologies separately** (MF, BP, CC), then averages. **ALL notebooks (01, 02, 03, 04) now correctly implement this per-aspect evaluation.** This was missed initially — all previous F1 scores were computed incorrectly by mixing aspects together.
 
 **Data ingestion** ✅  
 Loading protein sequences, GO annotations, ontology structure, taxonomy mapping, and IA weights from raw files. Like gathering all evidence at a crime scene — foundation for everything (+baseline).
@@ -91,8 +94,11 @@ Down-weighting easy negatives, focusing on hard positives. Like spending investi
 **Label propagation** (ancestor propagation) ✅  
 If you predict a very specific term, auto-add its broader parents. Like saying "Golden Retriever" implies "Dog" → painless lift (+0.02–0.04).
 
-**Per-aspect thresholds** (MF/BP/CC separate)  
-Different ontology branches need different confidence bars. Like setting stricter standards for medical diagnoses vs general health advice — optimises precision/recall trade-off per domain (+0.01–0.02).
+**Per-aspect evaluation** ✅  
+Competition metric: compute F1 separately for MF, BP, CC, then average the three. Not a single F1 across all terms. Kaggle does this automatically; local validation must match. Now correctly implemented in notebooks 01-02.
+
+**Per-aspect thresholds** (separate tuning per subontology)  
+After fixing evaluation, next step: find optimal threshold separately for MF, BP, CC instead of global threshold. MF might need 0.45, CC needs 0.35. Optimises precision/recall trade-off per domain (+0.01–0.02).
 
 **Simple ensemble** (KNN + ESM weighted average)  
 Combine homology-based (KNN) with learned patterns (ESM). Like asking both an experienced practitioner and an AI — they catch different errors (+0.01–0.02).

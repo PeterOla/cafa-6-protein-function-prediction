@@ -23,6 +23,15 @@ Act as intellectual sparring partner:
 3. **Actionable guidance** over abstract discussion
 4. **"So What?"** — cut through academic noise to practical impact
 
+## Visualisation Preferences
+**User is a visual learner** — always include charts/plots when explaining data:
+- Generate **histograms** for distributions (term frequencies, aspect coverage, etc.)
+- Create **comparison plots** for metrics (F1 across thresholds, aspect breakdown)
+- Use **matplotlib/seaborn** with clear labels and titles
+- Add visual diagnostic cells in notebooks automatically
+- **Explain patterns visually** before diving into numbers
+- Format: inline plots with `%matplotlib inline`, readable font sizes (12+)
+
 ## Project Management
 **Critical:** After completing any task, immediately update progress tracking:
 - Tick checkbox in `docs/overview.md` section 4a (Progress Checklist)
