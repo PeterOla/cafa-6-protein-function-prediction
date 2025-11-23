@@ -24,6 +24,11 @@ experiments/
 *.h5
 *.pkl
 
+# Intermediate predictions/results (large files)
+predictions_temp.parquet
+*_predictions.parquet
+*.parquet
+
 # Submissions
 submissions/*.tsv
 submissions/*.zip
