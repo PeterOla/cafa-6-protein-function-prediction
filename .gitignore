@@ -51,3 +51,7 @@ models/
 *.ckpt
 best_model/
 */best_model/
+
+# Artefacts
+artefacts/
+artefacts_local/

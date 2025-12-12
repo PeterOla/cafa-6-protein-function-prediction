@@ -1,0 +1,45 @@
+# CAFA-6 config
+# Goal: one config that runs on Kaggle, Colab, or local.
+# - Kaggle: inputs are typically under /kaggle/input/<dataset-name>/
+# - Colab: inputs are typically in Drive or uploaded; set BASE_DIR accordingly.
+
+project:
+  name: cafa-6-protein-function-prediction
+
+paths:
+  # Base directory (leave empty to auto-detect)
+  base_dir: ""
+
+  # Input data roots (can be a list; first match wins)
+  # Kaggle users: set `kaggle_input_dirs` to your dataset folder(s) in /kaggle/input.
+  kaggle_input_dirs: []
+  colab_input_dirs: []
+  local_input_dirs:
+    - "."
+
+  # Output directory (created if missing)
+  work_dir: "artefacts"
+
+inputs:
+  ia_tsv: "IA.tsv"
+  sample_submission_tsv: "sample_submission.tsv"
+
+  train:
+    sequences_fasta: "Train/train_sequences.fasta"
+    terms_tsv: "Train/train_terms.tsv"
+    taxonomy_tsv: "Train/train_taxonomy.tsv"
+    go_obo: "Train/go-basic.obo"
+
+  test:
+    sequences_fasta: "Test/testsuperset.fasta"
+    taxonomy_tsv: "Test/testsuperset-taxon-list.tsv"
+
+artefacts:
+  # Phase 1 outputs (paths are relative to work_dir)
+  parsed:
+    train_seq_feather: "parsed/train_seq.feather"
+    test_seq_feather: "parsed/test_seq.feather"
+  targets:
+    real_targets_parquet: "targets/real_targets.parquet"
+    priors_pkl: "targets/priors.pkl"
+    nulls_pkl: "targets/nulls.pkl"

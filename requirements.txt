@@ -23,3 +23,8 @@ ipykernel>=6.15.0
 
 # Utils
 tqdm>=4.64.0
+
+# Config / notebook tooling
+pyyaml>=6.0
+nbformat>=5.9.0
+nbclient>=0.8.0
