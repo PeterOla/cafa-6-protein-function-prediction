@@ -25,7 +25,9 @@ Where do you find `CAFA_CHECKPOINT_DATASET_ID`?
 
 2) Provide auth (API-only):
 - Set `KAGGLE_API_TOKEN=KGAT_...` via **Kaggle Secrets** or **Colab secrets**
-  - The notebook will try, in order: env var → Kaggle Secrets → Colab `userdata`.
+   - The notebook will try, in order: env var → Kaggle Secrets → Colab `userdata`.
+
+Note: `CAFA_CHECKPOINT_DATASET_ID` is resolved the same way (env var → Kaggle Secrets → Colab `userdata`).
 
 3) Optional controls:
 - `CAFA_CHECKPOINT_PULL=1` (default) to pull on startup
@@ -41,7 +43,9 @@ Steps:
 2) Add inputs:
    - The CAFA-6 competition dataset
    - (Optional but recommended) your checkpoint dataset `<user>/<slug>`
-3) Add a Secret named `KAGGLE_API_TOKEN` with value `KGAT_...`.
+3) Add Secrets:
+   - `KAGGLE_API_TOKEN` = `KGAT_...`
+   - (Optional) `CAFA_CHECKPOINT_DATASET_ID` = `<user>/<slug>`
 4) Open and run [notebooks/Colab_04_all_in_one.ipynb](../notebooks/Colab_04_all_in_one.ipynb).
 
 Notes:
@@ -60,8 +64,8 @@ Steps:
 1) Get the repo + data into Colab (pick one):
    - Mount Drive and copy the repo folder there
    - Or `git clone` your repo if it contains the competition files
-2) Set secrets:
-   - Add `KAGGLE_API_TOKEN` and `CAFA_CHECKPOINT_DATASET_ID` in your Colab environment.
+2) Set secrets/env vars:
+   - `KAGGLE_API_TOKEN` and `CAFA_CHECKPOINT_DATASET_ID` (either as env vars or Colab `userdata`).
 3) Run [notebooks/Colab_04_all_in_one.ipynb](../notebooks/Colab_04_all_in_one.ipynb).
 
 Recommended split (fastest wall-clock):
