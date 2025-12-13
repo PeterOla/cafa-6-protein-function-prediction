@@ -52,6 +52,18 @@ Goal:
 Outputs (example naming):
 - `prop_train_no_kaggle.tsv`, `prop_test_no_kaggle.tsv` (electronic labels; features)
 
+Storage-safe recommendation (do this locally, then upload to Kaggle):
+- Run the streaming filter script to keep only CAFA proteins and write **compressed** output:
+  - `scripts/01_build_goa_features.py` → `goa_filtered_iea.tsv.gz` (recommended: `--only-iea`)
+- Upload the resulting `.tsv.gz` as a Kaggle Dataset and mount it under `/kaggle/input/...`
+
+Why this matters:
+- GOA `goa_uniprot_all.gaf.*.gz` is huge; unzipping or writing unfiltered TSVs on Kaggle often hits disk limits.
+
+Kaggle operational note:
+- Write heavy intermediates to `/kaggle/temp` (bigger, ephemeral), not the notebook working directory.
+- If you download models, set caches to `/kaggle/temp` (e.g., `HF_HOME`, `TRANSFORMERS_CACHE`, `TORCH_HOME`) to avoid filling the default disk.
+
 Risk / sceptic note:
 - External labels are powerful but can leak weird biases; treat them as *features* for stackers, not unquestioned truth.
 
@@ -63,6 +75,10 @@ Minimum recommended modalities:
 
 Optional:
 - Ankh, text abstract embeddings
+
+Colab notebooks (offline artefact generation):
+- `notebooks/Colab_01_build_entryid_text_uniprot_pubmed.ipynb` (build `entryid_text.tsv`)
+- `notebooks/Colab_02_generate_optional_embeddings.ipynb` (write `.npy` files under `artefacts_local/artefacts/features/`)
 
 Outputs:
 - An `embeds/` directory with one file per modality (format TBD by implementation).

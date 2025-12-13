@@ -2,11 +2,17 @@
 pandas>=1.5.0
 numpy>=1.23.0
 scipy>=1.9.0
+pyarrow>=12.0.0
 
 # ML
 scikit-learn>=1.1.0
 torch>=2.0.0
 transformers>=4.30.0
+
+# Optional (text modality generation uses scikit-learn TF-IDF + joblib)
+
+# Optional (text embeddings)
+# sentence-transformers>=2.2.0
 
 # Bio
 biopython>=1.80
@@ -23,6 +29,7 @@ ipykernel>=6.15.0
 
 # Utils
 tqdm>=4.64.0
+requests>=2.31.0
 
 # Config / notebook tooling
 pyyaml>=6.0

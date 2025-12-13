@@ -64,11 +64,20 @@ Deliverables:
 - [x] Overview cleaned and pivoted to Rank-1 stack plan
 - [x] Create `docs/PLAN.md` with end-to-end execution steps
 - [x] Kaggle setup notebook added (`notebooks/CAFA6_Rank1_Solution.ipynb`)
+- [x] Competition rules snapshot captured (`rules.md`)
 - [x] Phase 0: verify Kaggle GPU and run notebook end-to-end
 - [x] Phase 1: Data Structuring (FASTA -> Feather, OBO parsing, Priors)
 - [x] Phase 1: generate multimodal embeddings (T5 + ESM2 implemented)
 - [x] Phase 1: Taxonomy features implemented
-- [ ] Phase 1: external GO features (UniProt GAF - optional)
-- [ ] Phase 2: train Level-1 models + save OOF predictions
+- [x] Phase 1: external GO features (UniProt GAF - optional)
+- [x] Local GOA precompute notebook + filtered artefact (`goa_filtered_iea.tsv.gz`)
+- [x] Kaggle GOA artefact discovery hardened (auto-scan `/kaggle/input`; supports `.tsv` and `.tsv.gz`)
+- [x] Phase 1: external GOA hierarchy propagation (IEA) + injected into GCN stacker inputs
+- [x] Phase 2: train Level-1 models + save OOF predictions (IA-weighted DNN loss + IA-F1 threshold diagnostics)
+- [x] Optional: offline embedding generator supports ESM2-3B + Ankh + 10279D text (TF-IDF)
+- [x] Optional: build `EntryID -> text` corpus from UniProt + PubMed (`scripts/03_build_entryid_text_from_uniprot_pubmed.py`)
+- [x] Colab notebook: build `entryid_text.tsv` (UniProt + PubMed) (`notebooks/Colab_01_build_entryid_text_uniprot_pubmed.ipynb`)
+- [x] Colab notebook: generate optional embeddings artefacts (`notebooks/Colab_02_generate_optional_embeddings.ipynb`)
+- [x] Colab notebooks normalised to Jupyter schema (cell `metadata.id`, `metadata.language`, `nbformat` keys)
 - [ ] Phase 3: train GCN stacker (BP/MF/CC) + TTA aggregation
 - [ ] Phase 4: strict min/max propagation + final submission generation

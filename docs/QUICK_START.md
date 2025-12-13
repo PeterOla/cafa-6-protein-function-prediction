@@ -51,6 +51,35 @@ jupyter notebook
 
 ---
 
+## 🧩 Optional: Generate additional multimodal embeddings (Local / Colab Pro)
+
+`notebooks/CAFA6_Rank1_Solution.ipynb` (Phase 2) will automatically use any of these files if present under `artefacts_local/artefacts/features/`:
+- `train_embeds_esm2_3b.npy` / `test_embeds_esm2_3b.npy`
+- `train_embeds_ankh.npy` / `test_embeds_ankh.npy`
+- `train_embeds_text.npy` / `test_embeds_text.npy` (requires your own `EntryID -> text` source)
+
+### Generate on Colab (recommended hardware: A100)
+Pre-req: run Phase 1 parsing first so you have `artefacts_local/artefacts/parsed/train_seq.feather` and `test_seq.feather`.
+
+```powershell
+pip install -r requirements.txt
+
+# ESM2-3B (very large; start with batch size 1)
+python scripts\02_generate_optional_embeddings.py --mode esm2_3b --batch-size 1 --max-len 1024
+
+# Ankh (often needs trust_remote_code)
+python scripts\02_generate_optional_embeddings.py --mode ankh --trust-remote-code --batch-size 2 --max-len 1024
+
+# Text (TF-IDF; requires your own EntryID -> text TSV/CSV)
+# Expected columns by default: EntryID, text
+python scripts\02_generate_optional_embeddings.py --mode text --device cpu --text-path path\to\entryid_text.tsv --text-dim 10279 --text-dtype float16
+```
+
+### Bring back into Kaggle
+Upload the resulting `.npy` files as a Kaggle Dataset, mount it, and copy them into `ARTEFACTS_DIR / 'features'`.
+
+---
+
 ## 📂 File Structure
 
 ```
