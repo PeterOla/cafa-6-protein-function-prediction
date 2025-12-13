@@ -28,6 +28,7 @@ Checkpointing (resumable across providers):
 - The notebook pulls checkpoints on startup (`STORE.pull()`) and publishes milestone versions after each stage (`STORE.push(stage, paths)`).
 - Control the target dataset via `CAFA_CHECKPOINT_DATASET_ID` (or `CAFA_KAGGLE_DATASET_ID`) and authenticate via `KAGGLE_USERNAME` + `KAGGLE_KEY` (from `kaggle.json`).
 - If `STORE.pull()` fails with **HTTP 403 Forbidden**, the dataset is not accessible (usually private / not shared). On Kaggle, prefer attaching the dataset as a Notebook Input.
+- By default, pull failures are **warnings** (so fresh Kaggle runs can proceed). Set `CAFA_CHECKPOINT_REQUIRED=1` to make checkpoint availability fail-fast.
 
 Runbook:
 - See `docs/RUNBOOK_CHECKPOINTS.md` for the straight-through “run here, resume there” workflow.

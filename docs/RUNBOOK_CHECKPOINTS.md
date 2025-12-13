@@ -36,6 +36,7 @@ Note: `CAFA_CHECKPOINT_DATASET_ID` is resolved the same way (env var → Kaggle 
 3) Optional controls:
 - `CAFA_CHECKPOINT_PULL=1` (default) to pull on startup
 - `CAFA_CHECKPOINT_PUSH=1` (default) to publish milestones
+- `CAFA_CHECKPOINT_REQUIRED=0` (default) to treat checkpoint pull failures as warnings (set to `1` to fail-fast)
 
 ---
 ## 1) Kaggle (recommended final consumer)
