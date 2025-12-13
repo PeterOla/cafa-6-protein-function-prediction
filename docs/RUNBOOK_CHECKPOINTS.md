@@ -57,6 +57,10 @@ Notes:
 - If the checkpoint dataset is attached as an input, `STORE.pull()` uses the mounted copy (fast, no network).
 - If it is not attached, `STORE.pull()` will try the Kaggle API download (needs internet + auth).
 
+Pip note (Kaggle):
+- Kaggle images come with many preinstalled packages. Blindly running `pip install -r requirements.txt` can upgrade core deps and produce resolver “dependency conflicts” warnings.
+- The all-in-one notebook avoids upgrading core packages on Kaggle by default; set `CAFA_FORCE_PIP=1` only if you explicitly want a full `requirements.txt` install.
+
 ---
 ## 2) Colab (good for heavy GPU stages)
 
