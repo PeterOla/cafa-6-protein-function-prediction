@@ -88,5 +88,6 @@ Deliverables:
 - [x] Runbook: resumable runs across Kaggle/Colab/local (`docs/RUNBOOK_CHECKPOINTS.md`)
 - [x] Colab_04: clearer failure mode for checkpoint pull HTTP 403 (private/not-shared dataset guidance)
 - [x] Colab_04: compact notebook formatting (remove accidental excessive blank lines)
+- [x] Colab_04: removed markdown cells + clarified embeddings generator label
 - [ ] Phase 3: train GCN stacker (BP/MF/CC) + TTA aggregation
 - [ ] Phase 4: strict min/max propagation + final submission generation

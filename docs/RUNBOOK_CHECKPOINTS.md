@@ -121,28 +121,30 @@ This is the concrete “what to run where” mapping for [notebooks/Colab_04_all
 ### Kaggle (recommended finishing environment)
 
 Required “resume + finish” run (GPU on):
-- Cell 2 (Install dependencies)
-- Cell 3 (Setup + `STORE.pull()`)
-- Cell 5 (Parse/structuring + hierarchy)
-- Cell 6 (Inline corpus builder code; labelled `# CELL 05`)
-- Cell 7 (Run: build EntryID→text corpus; labelled `# CELL 06`)
-- Cell 9–12 (TF‑IDF + external GOA + propagation + manifest diagnostics)
-- Cell 16–19 (Level‑1 → stacker → post‑processing → submission)
+- `# CELL 02` (Install dependencies)
+- `# CELL 03` (Setup + `STORE.pull()`)
+- `# CELL 04` (Parse/structuring + hierarchy)
+- `# CELL 05` (Inline: EntryID→text corpus builder)
+- `# CELL 06` (Run: build EntryID→text corpus)
+- `# CELL 07` (Inline: embeddings generator; required by TF‑IDF)
+- `# CELL 08` (Run: TF‑IDF embeddings)
+- `# CELL 09` + `# CELL 10` + `# CELL 10b` (external GOA + propagation + artefact diagnostics)
+- `# CELL 11` (T5 embeddings)
+- `# CELL 13` + `# CELL 14` + `# CELL 15` + `# CELL 16` (Level‑1 → stacker → post‑processing → submission)
 
 Not required for a valid CAFA submission:
-- Cell 20 (Free text prediction)
+- `# CELL 17` (Free text prediction)
 
 Notes:
-- Cell 1 is only needed if you’re using the notebook to clone/update the repo inside Kaggle.
-- Cells 4 and 13 are operator notes (markdown only).
+- `# CELL 01` is only needed if you’re using the notebook to clone/update the repo inside Kaggle.
 
 ### Colab (recommended heavy GPU stages)
 
 Run embeddings and publish checkpoints, then stop:
-- Cell 2 (Install dependencies)
-- Cell 3 (Setup + `STORE.pull()`)
-- Cell 14 (T5 embeddings)
-- Cell 15 (ESM2 embeddings)
+- `# CELL 02` (Install dependencies)
+- `# CELL 03` (Setup + `STORE.pull()`)
+- `# CELL 11` (T5 embeddings)
+- `# CELL 12` (ESM2 embeddings)
 
 Note:
 - The EntryID→text corpus + TF‑IDF + external GOA steps are treated as required for the strict runbook path; do them on Kaggle.
@@ -150,10 +152,10 @@ Note:
 ### Local (Windows) — debugging/iteration
 
 Smallest sensible “sanity run” (CPU is fine):
-- Cell 2 (Install dependencies)
-- Cell 3 (Setup + `STORE.pull()`)
-- Cell 5 (Parse/structuring)
-- Cell 12 (Manifest diagnostics)
+- `# CELL 02` (Install dependencies)
+- `# CELL 03` (Setup + `STORE.pull()`)
+- `# CELL 04` (Parse/structuring)
+- `# CELL 10b` (Artefact manifest diagnostics)
 
 If you want to publish from local:
 - Ensure `KAGGLE_USERNAME` and `KAGGLE_KEY` are set, then run the stage cells you care about; they will call `STORE.push(...)`.
@@ -165,29 +167,29 @@ Key idea: there is no magical background “dataset population”. The checkpoin
 
 ### Milestones (files) and the cells that produce them
 
-- **Stage 01: parsed core** (`WORK_ROOT/parsed/*`) → produced by Cell 5
-   - Required by: Cells 6, 8–12, 14–20
-- **Stage 02: entryid→text corpus** (`external/entryid_text.tsv`) → produced by Cell 7 (labelled `# CELL 06`)
-   - Required by: Cell 9 (TF‑IDF; labelled `# CELL 08`)
-- **Stage 03: TF‑IDF text embeddings** (`features/train_embeds_text.npy`, `features/test_embeds_text.npy`, `features/text_vectorizer.joblib`) → produced by Cell 9 (labelled `# CELL 08`)
+- **Stage 01: parsed core** (`WORK_ROOT/parsed/*`) → produced by `# CELL 04`
+   - Required by: everything downstream (`# CELL 05` onwards)
+- **Stage 02: entryid→text corpus** (`external/entryid_text.tsv`) → produced by `# CELL 06`
+   - Required by: `# CELL 08`
+- **Stage 03: TF‑IDF text embeddings** (`features/train_embeds_text.npy`, `features/test_embeds_text.npy`, `features/text_vectorizer.joblib`) → produced by `# CELL 08`
    - Required for the strict runbook path
-- **Stage 04: external GOA priors** (`external/prop_train_no_kaggle.tsv.gz`, `external/prop_test_no_kaggle.tsv.gz`) → produced by Cell 11 (labelled `# CELL 10`)
+- **Stage 04: external GOA priors** (`external/prop_train_no_kaggle.tsv.gz`, `external/prop_test_no_kaggle.tsv.gz`) → produced by `# CELL 10`
    - Required for the strict runbook path
-- **Stage 05: T5 embeddings** (`features/train_embeds_t5.npy`, `features/test_embeds_t5.npy`) → produced by Cell 14 (labelled `# CELL 11`)
-   - Required by: Cell 16 (Level‑1) (hard requirement)
-- **Stage 06: ESM2 embeddings** (`features/train_embeds_esm2.npy`, `features/test_embeds_esm2.npy`) → produced by Cell 15
+- **Stage 05: T5 embeddings** (`features/train_embeds_t5.npy`, `features/test_embeds_t5.npy`) → produced by `# CELL 11`
+   - Required by: `# CELL 13` (Level‑1) (hard requirement)
+- **Stage 06: ESM2 embeddings** (`features/train_embeds_esm2.npy`, `features/test_embeds_esm2.npy`) → produced by `# CELL 12`
    - Not required (Level‑1 uses it if present)
-- **Stage 07: Level‑1 predictions** (`features/oof_pred_*.npy`, `features/test_pred_*.npy`, `features/top_terms_1500.json`) → produced by Cell 16
-   - Required by: Cell 18
-- **Stage 08: stacker predictions** (`features/test_pred_gcn.npy`, `features/top_terms_1500.json`) → produced by Cell 18
-   - Required by: Cell 19
-- **Stage 09: submission** (`submission.tsv`) → produced by Cell 19
+- **Stage 07: Level‑1 predictions** (`features/oof_pred_*.npy`, `features/test_pred_*.npy`, `features/top_terms_1500.json`) → produced by `# CELL 13`
+   - Required by: `# CELL 14` / `# CELL 15`
+- **Stage 08: stacker predictions** (`features/test_pred_gcn.npy`, `features/top_terms_1500.json`) → produced by `# CELL 14` / `# CELL 15`
+   - Required by: `# CELL 16`
+- **Stage 09: submission** (`submission.tsv`) → produced by `# CELL 16`
 
 ### What you can run before the checkpoint dataset has anything in it
 
 If your checkpoint dataset is empty (first ever run), you **do not wait** — you simply run producers in order:
-- Core minimum path: Cell 2 → Cell 3 → Cell 5 → Cell 14 → Cell 16 → Cell 18 → Cell 19
-- Option B strict path: (minimum path) + Cell 6 → Cell 9 + Cell 11
+- Core minimum path: `# CELL 02` → `# CELL 03` → `# CELL 04` → `# CELL 11` → `# CELL 13` → `# CELL 14`/`# CELL 15` → `# CELL 16`
+- Option B strict path: (minimum path) + `# CELL 05` → `# CELL 06` → `# CELL 07` → `# CELL 08` + `# CELL 10`
 
 ### “I published on Colab, but Kaggle can’t see it yet”
 
