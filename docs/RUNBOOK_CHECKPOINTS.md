@@ -8,6 +8,9 @@ The all-in-one notebook ([notebooks/Colab_04_all_in_one.ipynb](../notebooks/Cola
 
 No other publishing flow should be used.
 
+Reliability note:
+- The PubMed fetch used during the EntryID→text corpus build is hardened (sanitise invalid XML, detect HTML error pages, retry/backoff, and split batches). This means long runs should complete even if a subset of PubMed IDs fail.
+
 ---
 ## 0) One-time setup (applies everywhere)
 
@@ -149,7 +152,17 @@ Required “resume + finish” run (GPU on):
 - `# CELL 08` (Run: TF‑IDF embeddings)
 - `# CELL 09` + `# CELL 10` + `# CELL 10b` (external GOA + propagation + artefact diagnostics)
 - `# CELL 11` (T5 embeddings)
-- `# CELL 13` + `# CELL 14` + `# CELL 15` + `# CELL 16` (Level‑1 → stacker → post‑processing → submission)
+- `# CELL 12` (ESM2/ESM2-3B/Ankh embeddings)
+- `# CELL 13` (Level‑1 shared setup)
+- `# CELL 13B` (LogReg Level‑1 + checkpoint)
+- `# CELL 13C` (GBDT Level‑1 + checkpoint; optional but usually helpful)
+- `# CELL 13D` (DNN Level‑1 + checkpoint)
+- `# CELL 14` + `# CELL 15` + `# CELL 16` (stacker → post‑processing → submission)
+
+If you already ran ESM2/ESM2-3B/Ankh on Colab and pushed checkpoints:
+- Kaggle: run `# CELL 02` → `# CELL 03` (pull) → then go straight to `# CELL 13` / `# CELL 13B` / `# CELL 13D` → `# CELL 14`/`# CELL 15` → `# CELL 16`.
+- Only run `# CELL 04`/`# CELL 11`/`# CELL 12` on Kaggle if their artefacts are missing after `STORE.pull()`.
+- If the checkpoint dataset is attached as a Kaggle input, restart the Kaggle session to pick up the latest dataset version.
 
 Not required for a valid CAFA submission:
 - `# CELL 17` (Free text prediction)
@@ -163,7 +176,7 @@ Run embeddings and publish checkpoints, then stop:
 - `# CELL 02` (Install dependencies)
 - `# CELL 03` (Setup + `STORE.pull()`)
 - `# CELL 11` (T5 embeddings)
-- `# CELL 12` (ESM2 embeddings)
+- `# CELL 12` (ESM2 embeddings; also generates ESM2-3B + Ankh)
 
 Note:
 - The EntryID→text corpus + TF‑IDF + external GOA steps are treated as required for the strict runbook path; do them on Kaggle.
@@ -196,9 +209,17 @@ Key idea: there is no magical background “dataset population”. The checkpoin
    - Required for the strict runbook path
 - **Stage 05: T5 embeddings** (`features/train_embeds_t5.npy`, `features/test_embeds_t5.npy`) → produced by `# CELL 11`
    - Required by: `# CELL 13` (Level‑1) (hard requirement)
-- **Stage 06: ESM2 embeddings** (`features/train_embeds_esm2.npy`, `features/test_embeds_esm2.npy`) → produced by `# CELL 12`
-   - Not required (Level‑1 uses it if present)
-- **Stage 07: Level‑1 predictions** (`features/oof_pred_*.npy`, `features/test_pred_*.npy`, `features/top_terms_1500.json`) → produced by `# CELL 13`
+- **Stage 06: ESM2 embeddings (650M)** (`features/train_embeds_esm2.npy`, `features/test_embeds_esm2.npy`) → produced by `# CELL 12`
+   - Optional (used if present)
+- **Stage 06b: ESM2-3B embeddings** (`features/train_embeds_esm2_3b.npy`, `features/test_embeds_esm2_3b.npy`) → produced by `# CELL 12`
+   - Required for the strict runbook path
+- **Stage 06c: Ankh embeddings** (`features/train_embeds_ankh.npy`, `features/test_embeds_ankh.npy`) → produced by `# CELL 12`
+   - Required for the strict runbook path
+- **Stage 07a: Level‑1 LogReg predictions** (`features/oof_pred_logreg.npy`, `features/test_pred_logreg.npy`, `features/top_terms_1500.json`) → produced by `# CELL 13B`
+   - Required by: `# CELL 14` / `# CELL 15`
+- **Stage 07b: Level‑1 GBDT predictions** (`features/oof_pred_gbdt.npy`, `features/test_pred_gbdt.npy`, `features/top_terms_1500.json`) → produced by `# CELL 13C`
+   - Optional (the stacker will use it if present)
+- **Stage 07c: Level‑1 DNN predictions** (`features/oof_pred_dnn.npy`, `features/test_pred_dnn.npy`, `features/top_terms_1500.json`) → produced by `# CELL 13D`
    - Required by: `# CELL 14` / `# CELL 15`
 - **Stage 08: stacker predictions** (`features/test_pred_gcn.npy`, `features/top_terms_1500.json`) → produced by `# CELL 14` / `# CELL 15`
    - Required by: `# CELL 16`
@@ -207,7 +228,8 @@ Key idea: there is no magical background “dataset population”. The checkpoin
 ### What you can run before the checkpoint dataset has anything in it
 
 If your checkpoint dataset is empty (first ever run), you **do not wait** — you simply run producers in order:
-- Core minimum path: `# CELL 02` → `# CELL 03` → `# CELL 04` → `# CELL 11` → `# CELL 13` → `# CELL 14`/`# CELL 15` → `# CELL 16`
+- Core minimum path: `# CELL 02` → `# CELL 03` → `# CELL 04` → `# CELL 11` → `# CELL 12` → `# CELL 13` → `# CELL 13B` → `# CELL 13D` → `# CELL 14`/`# CELL 15` → `# CELL 16`
+- Optional boost: run `# CELL 13C` and re-run `# CELL 14`/`# CELL 15`
 - Option B strict path: (minimum path) + `# CELL 05` → `# CELL 06` → `# CELL 07` → `# CELL 08` + `# CELL 10`
 
 ### “I published on Colab, but Kaggle can’t see it yet”
