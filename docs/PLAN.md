@@ -95,6 +95,9 @@ Colab notebooks (offline artefact generation):
 - `notebooks/Colab_03_text_plus_solution.ipynb` (single notebook: FASTA→feather → corpus → TF-IDF → solution handoff)
 - `notebooks/Colab_04_all_in_one.ipynb` (single notebook: inlines solution + corpus + TF-IDF code; no `!python` calls)
 
+Reliability note:
+- PubMed fetching is hardened in `Colab_04_all_in_one.ipynb` (sanitise invalid XML + retry/backoff + batch splitting) so long runs don’t crash on transient/invalid responses.
+
 Option B operational note (Kaggle final stop):
 - `notebooks/Colab_04_all_in_one.ipynb` runs in **strict mode** for TF-IDF + external GOA priors and includes an artefact manifest diagnostics cell.
 - Publishing/checkpointing is handled exclusively via `STORE.push(...)` (no duplicated “publish cell” flow).

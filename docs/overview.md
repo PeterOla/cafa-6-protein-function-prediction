@@ -102,5 +102,7 @@ Deliverables:
 - [x] Colab_04: ESM2 cell generates ESM2-3B + Ankh (skip-if-exists + checkpoint push)
 - [x] Colab_04: require ESM2-3B + Ankh + taxonomy (fail-fast if missing)
 - [x] Colab_04: split Level-1 training into per-model cells + per-model checkpoint pushes
+- [x] Colab_04: remove unused embedding-generator cell; TF-IDF run cell is self-contained
+- [x] Colab_04: PubMed fetch hardened (sanitize invalid XML + retry/backoff + recursive batch split)
 - [ ] Phase 3: train GCN stacker (BP/MF/CC) + TTA aggregation
 - [ ] Phase 4: strict min/max propagation + final submission generation
