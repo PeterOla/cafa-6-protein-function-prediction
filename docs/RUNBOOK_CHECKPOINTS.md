@@ -37,6 +37,7 @@ Note: `CAFA_CHECKPOINT_DATASET_ID` is resolved the same way (env var → Kaggle 
 - `CAFA_CHECKPOINT_PULL=1` (default) to pull on startup
 - `CAFA_CHECKPOINT_PUSH=1` (default) to publish milestones
 - `CAFA_CHECKPOINT_REQUIRED=1` (default) to fail-fast if checkpoints are not accessible (set to `0` for best-effort warning-only pulls)
+- `CAFA_CHECKPOINT_FORCE_PUSH=0` (default) to skip re-publishing if a stage is unchanged (set to `1` to force a new dataset version anyway)
 - `CAFA_FORCE_REBUILD=0` (default) to skip expensive rebuilds if outputs already exist after `STORE.pull()` (set to `1` to force rebuild of corpus/embeddings cells)
 - `CAFA_DATASET_ROOT=<path>` (optional) to explicitly point at the CAFA files root (must contain `Train/`, `Test/`, `IA.tsv`, `sample_submission.tsv`)
 - `CAFA_COLAB_AUTO_DOWNLOAD=0` (default) set to `1` on Colab to auto-download the CAFA competition bundle via Kaggle API if files are missing
