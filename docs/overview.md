@@ -95,5 +95,6 @@ Deliverables:
 - [x] Colab_04: checkpoint publishing uploads folders (--dir-mode zip)
 - [x] Colab_04: checkpoint publishing skips unchanged stages (CAFA_CHECKPOINT_FORCE_PUSH)
 - [x] Colab_04: fix GOA propagation ID matching (normalise UniProt headers)
+- [x] Colab_04: resolve CAFA_FORCE_REBUILD from Kaggle Secrets
 - [ ] Phase 3: train GCN stacker (BP/MF/CC) + TTA aggregation
 - [ ] Phase 4: strict min/max propagation + final submission generation
