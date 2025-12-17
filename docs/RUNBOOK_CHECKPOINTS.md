@@ -207,14 +207,34 @@ Key idea: there is no magical background “dataset population”. The checkpoin
    - Required for the strict runbook path
 - **Stage 04: external GOA priors** (`external/prop_train_no_kaggle.tsv.gz`, `external/prop_test_no_kaggle.tsv.gz`) → produced by `# CELL 10`
    - Required for the strict runbook path
-- **Stage 05: T5 embeddings** (`features/train_embeds_t5.npy`, `features/test_embeds_t5.npy`) → produced by `# CELL 11`
+- **Stage 05a: T5 train embeddings** (`features/train_embeds_t5.npy`) → produced by `# CELL 11`
+   - Purpose: crash-safe checkpoint so a failure during test embedding doesn’t waste the train run.
+- **Stage 05b: T5 test embeddings** (`features/test_embeds_t5.npy`) → produced by `# CELL 11`
+   - Purpose: separate checkpoint so test can be resumed independently.
+- **Stage 05: T5 embeddings (combined)** (`features/train_embeds_t5.npy`, `features/test_embeds_t5.npy`) → produced by `# CELL 11`
+   - Backwards-compatible “both files” stage used by older runs and convenient pulls.
    - Required by: `# CELL 13` (Level‑1) (hard requirement)
 - **Stage 06: ESM2 embeddings (650M)** (`features/train_embeds_esm2.npy`, `features/test_embeds_esm2.npy`) → produced by `# CELL 12`
+   - Backwards-compatible combined stage.
    - Optional (used if present)
+- **Stage 06 (granular): ESM2 train embeddings** (`features/train_embeds_esm2.npy`) → produced by `# CELL 12`
+   - Stage: `stage_06_embeddings_esm2_train`
+- **Stage 06 (granular): ESM2 test embeddings** (`features/test_embeds_esm2.npy`) → produced by `# CELL 12`
+   - Stage: `stage_06_embeddings_esm2_test`
 - **Stage 06b: ESM2-3B embeddings** (`features/train_embeds_esm2_3b.npy`, `features/test_embeds_esm2_3b.npy`) → produced by `# CELL 12`
+   - Backwards-compatible combined stage.
    - Required for the strict runbook path
+- **Stage 06b (granular): ESM2-3B train embeddings** (`features/train_embeds_esm2_3b.npy`) → produced by `# CELL 12`
+   - Stage: `stage_06b_embeddings_esm2_3b_train`
+- **Stage 06b (granular): ESM2-3B test embeddings** (`features/test_embeds_esm2_3b.npy`) → produced by `# CELL 12`
+   - Stage: `stage_06b_embeddings_esm2_3b_test`
 - **Stage 06c: Ankh embeddings** (`features/train_embeds_ankh.npy`, `features/test_embeds_ankh.npy`) → produced by `# CELL 12`
+   - Backwards-compatible combined stage.
    - Required for the strict runbook path
+- **Stage 06c (granular): Ankh train embeddings** (`features/train_embeds_ankh.npy`) → produced by `# CELL 12`
+   - Stage: `stage_06c_embeddings_ankh_train`
+- **Stage 06c (granular): Ankh test embeddings** (`features/test_embeds_ankh.npy`) → produced by `# CELL 12`
+   - Stage: `stage_06c_embeddings_ankh_test`
 - **Stage 07a: Level‑1 LogReg predictions** (`features/oof_pred_logreg.npy`, `features/test_pred_logreg.npy`, `features/top_terms_1500.json`) → produced by `# CELL 13B`
    - Required by: `# CELL 14` / `# CELL 15`
 - **Stage 07b: Level‑1 GBDT predictions** (`features/oof_pred_gbdt.npy`, `features/test_pred_gbdt.npy`, `features/top_terms_1500.json`) → produced by `# CELL 13C`

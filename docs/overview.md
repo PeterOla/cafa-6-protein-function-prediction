@@ -104,5 +104,7 @@ Deliverables:
 - [x] Colab_04: split Level-1 training into per-model cells + per-model checkpoint pushes
 - [x] Colab_04: remove unused embedding-generator cell; TF-IDF run cell is self-contained
 - [x] Colab_04: PubMed fetch hardened (sanitize invalid XML + retry/backoff + recursive batch split)
+- [x] Colab_04: ProtT5 checkpoint pushes after train and after test (granular, crash-safe)
+- [x] Colab_04: ESM2/ESM2-3B/Ankh checkpoint pushes after train and after test (granular, crash-safe)
 - [ ] Phase 3: train GCN stacker (BP/MF/CC) + TTA aggregation
 - [ ] Phase 4: strict min/max propagation + final submission generation
