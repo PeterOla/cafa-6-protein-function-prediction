@@ -188,6 +188,11 @@ def main() -> int:
         help="Path containing parsed/ and features/ (default: artefacts_local/artefacts)",
     )
     ap.add_argument(
+        "--force",
+        action="store_true",
+        help="Overwrite existing outputs (default: skip if outputs already exist).",
+    )
+    ap.add_argument(
         "--mode",
         choices=["esm2_3b", "ankh", "text"],
         required=True,
@@ -291,16 +296,26 @@ def main() -> int:
     test_ids, test_seqs = _read_sequences(test_feather)
 
     if args.mode == "esm2_3b":
+        out_train = feat_dir / "train_embeds_esm2_3b.npy"
+        out_test = feat_dir / "test_embeds_esm2_3b.npy"
+        if (out_train.exists() or out_test.exists()) and not args.force:
+            print(f"Outputs already exist; skipping (use --force to overwrite): {out_train}, {out_test}")
+            return 0
         print(f"Embedding ESM2-3B: {args.esm2_3b_model}")
         train_emb = embed_esm2(train_seqs, args.esm2_3b_model, args.batch_size, args.max_len, device)
         test_emb = embed_esm2(test_seqs, args.esm2_3b_model, args.batch_size, args.max_len, device)
-        np.save(feat_dir / "train_embeds_esm2_3b.npy", train_emb)
-        np.save(feat_dir / "test_embeds_esm2_3b.npy", test_emb)
-        print(f"Saved: {feat_dir / 'train_embeds_esm2_3b.npy'}")
-        print(f"Saved: {feat_dir / 'test_embeds_esm2_3b.npy'}")
+        np.save(out_train, train_emb)
+        np.save(out_test, test_emb)
+        print(f"Saved: {out_train}")
+        print(f"Saved: {out_test}")
         return 0
 
     if args.mode == "ankh":
+        out_train = feat_dir / "train_embeds_ankh.npy"
+        out_test = feat_dir / "test_embeds_ankh.npy"
+        if (out_train.exists() or out_test.exists()) and not args.force:
+            print(f"Outputs already exist; skipping (use --force to overwrite): {out_train}, {out_test}")
+            return 0
         print(f"Embedding Ankh: {args.ankh_model}")
         train_emb = embed_ankh(
             train_seqs,
@@ -318,10 +333,10 @@ def main() -> int:
             device,
             trust_remote_code=args.trust_remote_code,
         )
-        np.save(feat_dir / "train_embeds_ankh.npy", train_emb)
-        np.save(feat_dir / "test_embeds_ankh.npy", test_emb)
-        print(f"Saved: {feat_dir / 'train_embeds_ankh.npy'}")
-        print(f"Saved: {feat_dir / 'test_embeds_ankh.npy'}")
+        np.save(out_train, train_emb)
+        np.save(out_test, test_emb)
+        print(f"Saved: {out_train}")
+        print(f"Saved: {out_test}")
         return 0
 
     if args.mode == "text":
@@ -363,8 +378,12 @@ def main() -> int:
             text_map_norm[str(k)] = v
             text_map_norm[_norm_uniprot_id(k)] = v
 
-        train_texts = [text_map_norm.get(str(pid), "") for pid in train_ids]
-        test_texts = [text_map_norm.get(str(pid), "") for pid in test_ids]
+        def _lookup_text(pid: str) -> str:
+            s = str(pid)
+            return text_map_norm.get(s, text_map_norm.get(_norm_uniprot_id(s), ""))
+
+        train_texts = [_lookup_text(pid) for pid in train_ids]
+        test_texts = [_lookup_text(pid) for pid in test_ids]
 
         # TF-IDF gives a fixed-width, high-dimensional text modality with controllable size.
         # This is the most practical way to realise a 10279D "text embedding" without a bespoke LLM pipeline.
@@ -382,8 +401,18 @@ def main() -> int:
         print(f"TF-IDF vocab size: {n_features} (padded to {args.text_dim})")
 
         # Persist vectorizer for reproducibility
-        joblib.dump(vec, feat_dir / "text_vectorizer.joblib")
-        print(f"Saved: {feat_dir / 'text_vectorizer.joblib'}")
+        vec_path = feat_dir / "text_vectorizer.joblib"
+        train_out = feat_dir / "train_embeds_text.npy"
+        test_out = feat_dir / "test_embeds_text.npy"
+        if (vec_path.exists() or train_out.exists() or test_out.exists()) and not args.force:
+            print(
+                "Outputs already exist; skipping (use --force to overwrite): "
+                f"{vec_path}, {train_out}, {test_out}"
+            )
+            return 0
+
+        joblib.dump(vec, vec_path)
+        print(f"Saved: {vec_path}")
 
         out_dtype = np.float16 if args.text_dtype == "float16" else np.float32
 
@@ -407,8 +436,8 @@ def main() -> int:
             mm.flush()
             return path
 
-        train_path = _write_memmap("train_embeds_text.npy", train_texts)
-        test_path = _write_memmap("test_embeds_text.npy", test_texts)
+        train_path = _write_memmap(train_out.name, train_texts)
+        test_path = _write_memmap(test_out.name, test_texts)
         print(f"Saved: {train_path}")
         print(f"Saved: {test_path}")
         return 0
