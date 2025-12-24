@@ -18,6 +18,7 @@ Deliverables:
 
 Status:
 - ✅ `notebooks/05_cafa_e2e.ipynb`: removed obsolete `CAFA_INPUT_ROOT`/`INPUT_ROOT` wiring; notebook passes syntax smoke-check.
+- ✅ `notebooks/05_cafa_e2e.ipynb`: removed Kaggle dataset emergency restore cell entirely (no full-tree republish path).
 
 Run:
 - `notebooks/00_setup_kaggle_colab.ipynb`
@@ -27,14 +28,12 @@ Notes (pragmatic):
 - If you have multiple datasets mounted, set `DATASET_SLUG` inside the notebook.
 
 Checkpointing (resumable across providers):
-- Use a Kaggle Dataset as the canonical artefact store.
-- The notebook pulls checkpoints on startup (`STORE.pull(required_files=...)`) and publishes milestone versions after each stage.
-- Control the target dataset via `CAFA_CHECKPOINT_DATASET_ID` (or `CAFA_KAGGLE_DATASET_ID`) and authenticate via `KAGGLE_USERNAME` + `KAGGLE_KEY`.
+- Use a Hugging Face Hub dataset repo as the canonical artefact store.
+- The notebook pulls checkpoints on startup (`STORE.pull(required_files=...)`) and **uploads immediately after each artefact/stage is generated** (`STORE.maybe_push(stage, required_paths, ...)`).
+- Control the target repo via `CAFA_HF_REPO_ID` (e.g. `PeterOla/cafa6-checkpoints`) and authenticate via `HF_TOKEN` / `HUGGINGFACE_TOKEN`.
 - Colab-only rule: fetch secrets exclusively via `from google.colab import userdata; userdata.get('...')`.
-- If `STORE.pull()` fails with **HTTP 403 Forbidden**, the dataset is not accessible (usually private / not shared). On Kaggle, prefer attaching the dataset as a Notebook Input.
-- If `STORE.pull()` fails with **HTTP 404 Not Found**, either the dataset ID is wrong or it is private/not accessible to the current account.
-- On any `STORE.pull()` failure, the raised exception includes a Kaggle CLI output excerpt (so you can see the actual reason in Colab logs).
-- By default, checkpoint pulls are **fail-fast**. Set `CAFA_CHECKPOINT_REQUIRED=0` if you want best-effort warning-only pulls.
+- Local/other notebooks: rely on env vars (optionally loaded from a repo `.env`, gitignored).
+- Bulk snapshot tool: `scripts/hf_upload_cafa6_data.py` uploads the whole `cafa6_data/` tree when you want a one-off sync.
 
 
 
@@ -137,6 +136,10 @@ Option B operational note (Kaggle final stop):
 
 Outputs:
 - An `embeds/` directory with one file per modality (format TBD by implementation).
+
+Validated (local run, `notebooks/05_cafa_e2e.ipynb`):
+- EntryID→text coverage is 100% non-empty for both train and test.
+- Test texts are shorter on average (median chars lower), which explains lower TF-IDF nnz/row on test without implying missing text.
 
 ---
 ## Phase 2 — Level-1 models (OOF predictions)

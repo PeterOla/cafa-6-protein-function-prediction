@@ -30,6 +30,10 @@ Act as intellectual sparring partner:
 - **Do not recompute** if artefacts exist (default): prefer `skip-if-exists` guards and explicit `FORCE_REBUILD` / `CAFA_FORCE_REBUILD` toggles.
 - **Small local verification** before Colab/Kaggle scale runs (time, RAM, file paths, schema).
 
+## Follow Direct Instructions (no extra toggles)
+- When I give a direct instruction (e.g. “skip X if it exists; compute Y”), implement it plainly.
+- Do **not** introduce new environment variables, feature flags, “opt-in” switches, or additional conditional branches unless I explicitly ask for them.
+
 ## Quality Bar (Non-negotiable)
 - Do **not** suggest "compromises" that reduce research quality (e.g., lowering `TOP_K`, reducing folds, dropping modalities, loosening ontology constraints) unless I explicitly ask for a *fast dev run*.
 - Default to preserving: full term set, full GO constraints, and the intended evaluation protocol.

@@ -76,6 +76,8 @@ Deliverables:
 - [x] Phase 1: external GOA hierarchy propagation (IEA) + injected into GCN stacker inputs
 - [x] Phase 2: train Level-1 models + save OOF predictions (IA-weighted DNN loss + IA-F1 threshold diagnostics)
 - [x] Offline embedding generator supports ESM2-3B + Ankh + 10279D text (TF-IDF)
+- [x] TF-IDF embeddings (Stage 03) validated non-zero and pushed to checkpoint dataset (`stage_03_tfidf_text`)
+- [x] TF-IDF text coverage audited (train vs test): 100% non-empty; test median text shorter (explains nnz/row shift)
 - [x] Optional: build `EntryID -> text` corpus from UniProt + PubMed (`scripts/03_build_entryid_text_from_uniprot_pubmed.py`)
 - [x] Colab notebook: build `entryid_text.tsv` (UniProt + PubMed) (`notebooks/Colab_01_build_entryid_text_uniprot_pubmed.ipynb`)
 - [x] Colab notebook: generate optional embeddings artefacts (`notebooks/Colab_02_generate_optional_embeddings.ipynb`)
@@ -132,3 +134,6 @@ Deliverables:
 - [x] Colab_04_all_in_one: enforce userdata-only secrets + rerun Kaggle CLI on empty error output
 - [x] Phase 3: train GCN stacker (BP/MF/CC) + emit `test_pred_gcn.npy`
 - [x] Phase 4: strict min/max propagation + final submission generation
+- [x] HF: migrate checkpoint publishing to Hugging Face Hub (HF-only; no Kaggle publish) + bulk uploader (`scripts/hf_upload_cafa6_data.py`)
+- [x] HF: verify uploaded artefacts and LFS status (`scripts/hf_verify_cafa6_data_upload.py`)
+- [x] `notebooks/05_cafa_e2e.ipynb`: remove Kaggle dataset emergency restore (no in-notebook full-tree republish)
