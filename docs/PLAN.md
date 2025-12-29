@@ -158,6 +158,8 @@ Hard requirements (current pipeline):
 - Checkpoint publishing uses `STORE.push(stage, required_paths, note)`; split per-model cells must pass `required_paths=`.
 - Colab_04b Phase 2a LogReg avoids `X[idx_tr]`/`fit_transform` full copies by using disk-backed folds + streamed scaling.
 - `notebooks/05_cafa_e2e.ipynb` trains LogReg **per aspect** (BP/MF/CC) and writes per-aspect predictions under `features/level1_preds/` (also assembles combined `oof_pred_logreg.npy` / `test_pred_logreg.npy` for the 13,500-term contract).
+- `notebooks/05_cafa_e2e.ipynb` LogReg GPU path keeps fold-scaled `X_test` on GPU when feasible to avoid repeating host→device transfer per target-chunk (major runtime win on A100-class GPUs).
+- To run MF and CC in parallel (without copying `05_cafa_e2e.ipynb`), use wrapper notebooks: `notebooks/05_cafa_e2e_run_MF.ipynb` and `notebooks/05_cafa_e2e_run_CC.ipynb`.
 - `notebooks/05_cafa_e2e.ipynb` Phase 2 setup mirrors the 04b target-selection logic and builds disk-backed `features/X_train_mmap.npy` + `features/X_test_mmap.npy` so downstream per-model cells can stay RAM-safe.
 - Colab_04b Phase 2a LogReg defaults to RAPIDS/cuML when available (`USE_RAPIDS_LOGREG=True`).
 - Colab_04b target selection normalises `train_terms.aspect` (namespace strings → BP/MF/CC) and fails fast if the split is missing (prevents silent global fallback).

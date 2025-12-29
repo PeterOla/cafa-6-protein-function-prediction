@@ -127,7 +127,8 @@ Deliverables:
 - [x] `notebooks/05_cafa_e2e.ipynb`: Phase 2 LogReg RAM cliff fix (no `Y_aspect` fancy-index copy; mandatory per-aspect runs; batched val/test)
 - [x] `notebooks/05_cafa_e2e.ipynb`: Phase 2 LogReg deep GPU telemetry (CuPy `memGetInfo` + pool stats around `X_tr_gpu` and first cuML fit)
 - [x] `notebooks/05_cafa_e2e.ipynb`: LogReg RAPIDS/cuML OVR inference hardened (no `predict_proba` assumption; `decision_function`→sigmoid fallback) + CPU fallback avoids joblib subprocesses
-- [x] `notebooks/05_cafa_e2e.ipynb`: LogReg runtime: pre-scale `X_test` once per fold + larger GPU/CPU test batches (no quality change)
+- [x] `notebooks/05_cafa_e2e.ipynb`: LogReg runtime: pre-scale `X_test` once per fold + keep `X_test` on GPU per fold when possible (avoid repeated PCIe transfers) + larger GPU/CPU test batches (no quality change)
+- [x] Wrapper notebooks for parallel per-aspect LogReg runs (`notebooks/05_cafa_e2e_run_MF.ipynb`, `notebooks/05_cafa_e2e_run_CC.ipynb`)
 - [x] `scripts/audit_gbdt_target_scale.py`: Audit expanding GBDT targets 4,500→6,000 (frequency drop-off, <50 noise floor rate, IA contribution)
 - [x] `scripts/audit_optimal_topk_by_aspect.py`: Per-aspect (BP/MF/CC) optimal Top-K audit under IA vs noise-floor trade-off
 - [x] `scripts/verify_signal_horizon_1585.py`: Foolproof verification of the 1,585 stable targets from Phase-1 artefacts (namespace integrity, ≥50 positives, IA coverage)
