@@ -59,3 +59,33 @@ Expected:
 - Python is 3.11.x
 - `CuPy GPU alloc: OK`
 - `feature_grouper_kernel is None? False`
+
+## 6) Common failure: `import torch` crashes after installing RAPIDS
+
+Symptom (typical):
+
+```
+ImportError: .../nvidia/cusparse/lib/libcusparse.so.12: undefined symbol: __nvJitLinkGetErrorLogSize_12_9, version libnvJitLink.so.12
+```
+
+Cause:
+- The process is loading **system CUDA** `libnvJitLink.so.12` (often from `/usr/local/cuda/lib64`, e.g. CUDA 12.8) instead of the **Python env’s** `nvidia-nvjitlink-cu12` (often newer, e.g. 12.9).
+
+Debug (proves which `nvjitlink` is being used):
+
+```bash
+ldd /venv/cafa311/lib/python3.11/site-packages/nvidia/cusparse/lib/libcusparse.so.12 | grep -i nvjitlink
+```
+
+If you see it resolve to `/usr/local/cuda/lib64/libnvJitLink.so.12`, apply this fix.
+
+Fix (force the loader to prefer the env’s nvjitlink, then restart the kernel):
+
+```bash
+export LD_LIBRARY_PATH="/venv/cafa311/lib/python3.11/site-packages/nvidia/nvjitlink/lib:${LD_LIBRARY_PATH}"
+python -c "import torch; print('torch ok', torch.__version__, 'cuda', torch.version.cuda, 'avail', torch.cuda.is_available())"
+```
+
+Notes:
+- You must **restart the Jupyter kernel** after setting `LD_LIBRARY_PATH` (the kernel inherits env vars at process start).
+- If RAPIDS is installed and `cuml` imports, but `torch` fails with the symbol error above, this loader ordering issue is the first thing to check.

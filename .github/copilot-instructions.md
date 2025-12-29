@@ -9,6 +9,17 @@
 - **Options**: List briefly, recommend one (with a clear reason)
 - **Next steps**: Always include concrete actions (commands/files) when relevant
 
+## Terminal Commands (priority)
+- When asking me to run terminal tasks or giving you terminal steps, provide **exactly one** recommended command/path to run.
+- Do **not** provide multiple install paths (A/B/C) unless I explicitly ask for alternatives.
+- If a confirmation is needed, ask for a single explicit confirmation (e.g. “confirm: yes/no”), then give the one command.
+
+## Debugging First (priority)
+- Do **not** guess versions, package names, or fix steps (“vibe code”).
+- Before recommending installs/upgrades, first request or run the **minimum diagnostic command(s)** that prove the root cause (e.g. `pip list`, `pip index versions <pkg>`, `ldd` for `.so` link targets).
+- When proposing a pinned version, ensure it **actually exists** on the relevant index (PyPI / NVIDIA / PyTorch) before telling the user to install it.
+- Prefer fixes that make the environment **internally consistent** (same CUDA minor across `nvidia-*-cu12` where feasible) and verify with a smoke-import after changes.
+
 ## Working Agreement (how we stay in sync)
 - Default to **high autonomy**: if the request is actionable, start making the change and validate it.
 - Ask **at most 1–3 clarifying questions** only when ambiguity would risk wasted work or wrong research conclusions.
