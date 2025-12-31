@@ -81,8 +81,9 @@ Act as intellectual sparring partner:
 - Default plotting style: readable, minimal clutter; prefer `seaborn.set_theme()` and a colour-blind friendly palette when possible
 
 ## Hardware Specs
-- **Local (Windows)**: 16GB RAM, NVIDIA RTX 2070 (8GB VRAM)
-- **Colab Pro+**: 53GB RAM, 22.5GB GPU VRAM (A100/L4)
+- **Local (Windows)**: 16GB RAM, NVIDIA RTX 2070 (8GB VRAM) - Primary dev environment
+- **Colab Pro+**: 53GB RAM, 22.5GB GPU VRAM (A100/L4) - cloud dev environment
+- **Vast.Ai**: 241GB RAM, 40GB GPU VRAM (A100) - Preferred large-scale runs
 
 ## Performance & Reliability (practical defaults)
 - Avoid RAM blow-ups: prefer memmaps, streaming, chunked I/O, and sparse matrices where appropriate.
