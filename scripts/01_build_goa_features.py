@@ -29,6 +29,20 @@ from pathlib import Path
 from typing import Iterable, Iterator, Set, Tuple
 
 
+def _extract_entry_id(token: str) -> str:
+    """Normalise FASTA header tokens into a CAFA EntryID.
+
+    Train FASTA commonly uses UniProt headers like `sp|A0A0C5B5G6|MOTSC_HUMAN`,
+    whereas CAFA TSVs and GOA GAF use the accession only (`A0A0C5B5G6`).
+    """
+    s = str(token).strip()
+    if "|" in s:
+        parts = s.split("|")
+        if len(parts) >= 3 and parts[0] in {"sp", "tr"} and parts[1]:
+            return parts[1]
+    return s
+
+
 def iter_fasta_ids(fasta_path: Path) -> Iterator[str]:
     """Yield FASTA record IDs (first token after '>')."""
     with fasta_path.open("rt", encoding="utf-8", errors="replace") as f:
@@ -37,7 +51,7 @@ def iter_fasta_ids(fasta_path: Path) -> Iterator[str]:
                 header = line[1:].strip()
                 if not header:
                     continue
-                yield header.split()[0]
+                yield _extract_entry_id(header.split()[0])
 
 
 def load_cafa_ids(train_fasta: Path, test_fasta: Path) -> Set[str]:

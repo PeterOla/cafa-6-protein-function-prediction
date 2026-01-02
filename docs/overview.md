@@ -118,6 +118,7 @@ Deliverables:
 - [x] 05: final audit — `cafa6_data/` is canonical; checkpoint store de-duped + manifest fixed; notebook passes syntax + name smoke-checks
 - [x] 05: Phase 2 setup aligned with 04b (aspect Top-K split + guardrail) + Ankh mandatory + disk-backed `X_train_mmap.npy`/`X_test_mmap.npy`
 - [x] 05: local run verified up to (excluding) embeddings generation (pre-Ankh)
+- [x] 05: added verbose heartbeat + ETA logs for Level-1 DNN and KNN
 - [x] 05: GBDT uses contiguous RAM arrays for mini-fit + fold slices (prevents numba TypingError)
 - [x] 05: GBDT uses fold validation via `eval_sets` (enables `es=` early stopping) + fixes resume print path
 - [x] 05: GBDT refactor to multi-output per fold (predict `X_test` once per fold, not 1,585×)
@@ -141,6 +142,7 @@ Deliverables:
 - [x] Colab_04b: normalise `train_terms.aspect` (namespace strings → BP/MF/CC) + fail-fast guardrail (prevents silent target fallback)
 - [x] Colab_04b: enable RAPIDS/cuML LogReg path by default (`USE_RAPIDS_LOGREG=True`)
 - [x] Colab_04: visual diagnostics for embeddings + Level-1 models (histograms + IA-F1 curves)
+- [x] IA-weighted evaluation of Level-1 OOF predictions (Rank-1 thresholds) (`notebooks/06_evaluate_oof_predictions (1).ipynb`)
 - [x] Ankh embeddings: AMP fallback + non-finite guard (prevents silently saving all-NaN `.npy` artefacts)
 - [x] Option A: first-submission notebook that skips Ankh (`notebooks/Colab_04b_first_submission_no_ankh.ipynb`)
 - [x] Option A: first-submission notebook trimmed (reuse artefacts) + optional checkpoint republish without Ankh/ankr `.npy` (Colab_04b)
