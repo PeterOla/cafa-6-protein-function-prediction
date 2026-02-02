@@ -56,7 +56,7 @@ This was the **root cause of the 0.083 score**. Cell 13a already uses `train_ids
 
 ## Part 2: Root Cause Analysis
 
-### The Y Matrix Mismatch
+### Bug #1: Protein ID Ordering Mismatch (Early Fix)
 
 The embeddings were generated from proteins in `train_seq.feather` order, but the label matrix `Y` was constructed using protein order from `train_terms.tsv`. These orderings are **different**:
 
@@ -67,12 +67,113 @@ train_terms.tsv (label order):          Q5W0B1, Q5W0B1, Q5W0B1, ...
 
 This caused embeddings to be paired with **wrong protein labels**, effectively randomizing the learning signal.
 
+**Fix:** Cell 13a loads protein IDs from `train_seq.feather` and reindexes `Y_df` to match embedding order.
+
+---
+
+### Bug #2: Y Matrix Column Ordering (2026-01-31) — THE CRITICAL BUG
+
+Even after fixing protein row order, results were **inverted**:
+
+| Aspect | Observed | Expected |
+|--------|----------|----------|
+| BP | 0.2985 | ~0.12 |
+| MF | 0.0215 | ~0.34 |
+| CC | 0.0120 | ~0.28 |
+
+**Root Cause:** `pd.pivot_table()` creates columns in **alphabetical order**, not the expected **BP→MF→CC** order.
+
+#### The Problem
+
+```python
+# Cell 13a built Y_df like this:
+Y_df = train_terms.pivot_table(
+    index='protein', columns='term', values='label', fill_value=0
+)
+# Columns are sorted ALPHABETICALLY: GO:0000001, GO:0000002, ...
+```
+
+But `top_terms` (the vocabulary list) is ordered **BP first, then MF, then CC**:
+
+```python
+top_terms = bp_terms[:10000] + mf_terms[:2000] + cc_terms[:1500]
+# Order: [BP terms at idx 0-9999] [MF terms at idx 10000-11999] [CC terms at idx 12000-13499]
+```
+
+#### Why This Broke Everything
+
+The aspect indices assumed `top_terms` order:
+
+```python
+bp_term_idx = np.where([term_aspects.get(t) == 'BP' for t in top_terms])[0]  # Expected: [0, 1, ..., 9999]
+mf_term_idx = np.where([term_aspects.get(t) == 'MF' for t in top_terms])[0]  # Expected: [10000, ..., 11999]
+cc_term_idx = np.where([term_aspects.get(t) == 'CC' for t in top_terms])[0]  # Expected: [12000, ..., 13499]
+```
+
+But `Y_df` columns were **alphabetical**, so `Y_knn[:, bp_term_idx]` fetched the **wrong columns**:
+
+| Index | Expected (BP→MF→CC) | Actual (Alphabetical) |
+|-------|---------------------|----------------------|
+| 0 | GO:0045944 (BP) | GO:0000001 (CC) |
+| 5000 | GO:0014883 (BP) | GO:0005515 (MF) |
+| 10000 | GO:0005515 (MF) | GO:0045944 (BP) |
+
+GO terms starting with `GO:00...` span all three aspects, so alphabetical sorting **scrambled** the aspect boundaries.
+
+#### The Fix
+
+Add explicit column reindexing after pivot:
+
+```python
+# Reorder columns to match top_terms order (BP→MF→CC)
+Y_df = Y_df.reindex(columns=top_terms, fill_value=0)
+```
+
+This single line ensures:
+- Y columns are in **exact same order** as `top_terms`
+- Aspect indices select **correct** column ranges
+- BP labels → BP predictions, MF labels → MF predictions, CC labels → CC predictions
+
+#### Verification Added
+
+Cell 13a now includes 7 alignment checks:
+
+```python
+# 1. Column match
+assert list(Y_df.columns) == top_terms, "[FATAL] Y_df columns != top_terms"
+
+# 2. Aspect distribution
+bp_count = sum(1 for t in top_terms if term_aspects.get(t) == 'BP')  # Must be 10000
+
+# 3. Boundary checks
+# idx 0-9999 must be BP, idx 10000-11999 must be MF, idx 12000-13499 must be CC
+
+# 4-7. Sample term verification at specific indices
+```
+
+Cell 28 (KNN) also verifies alignment before evaluation.
+
 ### Impact
 
-| Metric | Broken Notebook | After Fix |
-|--------|-----------------|-----------|
-| CAFA F1 | **0.083** | **0.2481** |
-| Improvement | — | **+199%** |
+| Metric | Bug #1 Only Fixed | Bug #2 Fixed |
+|--------|-------------------|--------------|
+| BP | 0.2985 (wrong) | **0.1210** ✓ |
+| MF | 0.0215 (wrong) | **0.3408** ✓ |
+| CC | 0.0120 (wrong) | **0.2825** ✓ |
+| CAFA F1 | 0.1107 | **0.2481** ✓ |
+
+---
+
+### Why This Bug Was Hard to Find
+
+1. **No errors thrown** — NumPy happily slices wrong columns
+2. **Plausible-looking scores** — F1 values were in valid range (0-1)
+3. **Inverted pattern was subtle** — BP was ~3x expected, MF/CC were ~10x lower
+4. **No obvious red flags** — Shape checks all passed (82404 × 13500)
+
+### Key Insight
+
+> When using `pivot_table()` to build a label matrix, **always** call `.reindex(columns=vocabulary)` to enforce the expected column order. Pandas does not preserve insertion order in pivot operations.
 
 ---
 
@@ -163,13 +264,60 @@ KNN_THRESHOLDS = {'BP': 0.40, 'MF': 0.40, 'CC': 0.30}
 
 1. **Data alignment is critical** — A single row order mismatch can destroy model performance completely (0.083 vs 0.245)
 
-2. **Vocabulary filtering can improve scores** — Rare terms with few positive examples add noise; filtering to frequent terms (13,500) improved F1 by +0.25%
+2. **Column ordering in pivot tables is dangerous** — `pd.pivot_table()` returns alphabetically sorted columns, not insertion order. Always use `.reindex(columns=vocabulary)` to enforce expected order.
 
-3. **Aspect-specific hyperparameters matter** — BP, MF, and CC have different optimal K values due to their semantic structure
+3. **Vocabulary filtering can improve scores** — Rare terms with few positive examples add noise; filtering to frequent terms (13,500) improved F1 by +0.25%
 
-4. **Double-weighting hurts** — If the evaluation metric uses IA weights, don't apply them during training/inference
+4. **Aspect-specific hyperparameters matter** — BP, MF, and CC have different optimal K values due to their semantic structure
 
-5. **Per-protein normalization is essential** — Required for proper threshold calibration
+5. **Double-weighting hurts** — If the evaluation metric uses IA weights, don't apply them during training/inference
+
+6. **Per-protein normalization is essential** — Required for proper threshold calibration
+
+7. **Add fail-fast verification** — Every alignment point should have explicit checks that raise errors on mismatch. Silent failures are debugging nightmares.
+
+8. **Inverted metrics are a red flag** — If one aspect is too high while others are crushed, suspect column/row ordering bugs, not hyperparameter issues.
+
+---
+
+## Part 9: Defensive Coding Patterns
+
+### Pattern 1: Explicit Column Reindexing
+
+```python
+# BAD: Trust pivot_table ordering
+Y_df = df.pivot_table(index='protein', columns='term', values='label')
+
+# GOOD: Force explicit ordering
+Y_df = df.pivot_table(index='protein', columns='term', values='label')
+Y_df = Y_df.reindex(columns=vocabulary, fill_value=0)  # ← CRITICAL
+```
+
+### Pattern 2: Fail-Fast Alignment Checks
+
+```python
+# After building Y matrix
+if list(Y_df.columns) != top_terms:
+    raise RuntimeError(f"[FATAL] Column mismatch: Y_df has {len(Y_df.columns)} cols, expected {len(top_terms)}")
+
+# Verify aspect boundaries
+for idx, expected_aspect in [(0, 'BP'), (10000, 'MF'), (12000, 'CC')]:
+    actual = term_aspects.get(top_terms[idx])
+    if actual != expected_aspect:
+        raise RuntimeError(f"[FATAL] top_terms[{idx}]={top_terms[idx]} is {actual}, expected {expected_aspect}")
+```
+
+### Pattern 3: Sample Spot Checks
+
+```python
+# Verify random indices across aspect boundaries
+spot_checks = [0, 5000, 9999, 10000, 11000, 12000, 13499]
+for idx in spot_checks:
+    term = top_terms[idx]
+    expected = 'BP' if idx < 10000 else ('MF' if idx < 12000 else 'CC')
+    actual = term_aspects.get(term)
+    print(f"  idx={idx}: {term}, expected={expected}, actual={actual} {'[OK]' if actual == expected else '[FAIL]'}")
+```
 
 ---
 
@@ -177,8 +325,20 @@ KNN_THRESHOLDS = {'BP': 0.40, 'MF': 0.40, 'CC': 0.30}
 
 - `LOGIC_CHAIN.md` — Detailed reasoning chain for the investigation
 - `investigation_knn_performance.md` — Initial investigation notes
-- Original broken score: 0.083 (Kaggle submission)
+- Original broken score: 0.083 (Kaggle submission, row mismatch)
+- Intermediate broken score: 0.1107 (column ordering bug)
 - Fixed score: 0.2481 (OOF validation)
+
+---
+
+## Timeline
+
+| Date | Issue | Score |
+|------|-------|-------|
+| Initial | Row ordering mismatch (protein IDs) | 0.083 |
+| Fix #1 | Reindex Y_df rows to match embeddings | ~0.11 |
+| 2026-01-31 | **Column ordering bug discovered** | 0.1107 |
+| 2026-01-31 | Added `Y_df.reindex(columns=top_terms)` | **0.2481** ✓ |
 
 ---
 

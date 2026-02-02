@@ -92,11 +92,6 @@ else:
     # Load Dicts
     top_terms = json.loads((FEAT_DIR / 'top_terms_13500.json').read_text())
     
-    # [VERIFICATION HOOK]
-    if os.environ.get('QUICK_CHECK'):
-        print("[DEBUG] QUICK_CHECK enabled: Reducing to Top 50 terms")
-        top_terms = top_terms[:50]
-    
     # OBO Aspect Logic
     # (Simplified for robustness)
     obo_path = WORK_ROOT / "Train" / "go-basic.obo"
@@ -157,10 +152,67 @@ else:
         (np.ones(len(rows), dtype=np.float32), (rows, cols)),
         shape=(len(train_ids), len(top_terms))
     )
-    # Convert to dense for slicing (or keep sparse if Memory is tight, but cuML wants dense-ish or array)
-    # We will slice sparse and convert to dense per-batch to save RAM.
     
     print(f"Y Matrix Built: {Y_sparse.shape} (Aligned to train_seq)")
+    
+    # ===== ALIGNMENT VERIFICATION BLOCK (fail-fast) =====
+    print('\n' + '=' * 70)
+    print('[VERIFY] LogReg Y Matrix / top_terms / aspects Alignment Checks')
+    print('=' * 70)
+    
+    # CHECK 1: Y shape matches expected dimensions
+    expected_n_proteins = len(train_ids)
+    expected_n_terms = len(top_terms)
+    if Y_sparse.shape != (expected_n_proteins, expected_n_terms):
+        raise RuntimeError(f"[FATAL] Y_sparse shape {Y_sparse.shape} != expected ({expected_n_proteins}, {expected_n_terms})")
+    print(f'[CHECK 1] Y_sparse shape: {Y_sparse.shape} [OK]')
+    
+    # CHECK 2: Aspect distribution in top_terms
+    bp_count = sum(1 for t in top_terms if aspects_map.get(t) == 'BP')
+    mf_count = sum(1 for t in top_terms if aspects_map.get(t) == 'MF')
+    cc_count = sum(1 for t in top_terms if aspects_map.get(t) == 'CC')
+    unk_count = sum(1 for t in top_terms if aspects_map.get(t) == 'UNK')
+    print(f'[CHECK 2] Aspect distribution: BP={bp_count}, MF={mf_count}, CC={cc_count}, UNK={unk_count}')
+    
+    # Verify expected counts
+    if bp_count != 10000:
+        raise RuntimeError(f"[FATAL] Expected 10000 BP terms, got {bp_count}")
+    if mf_count != 2000:
+        raise RuntimeError(f"[FATAL] Expected 2000 MF terms, got {mf_count}")
+    if cc_count != 1500:
+        raise RuntimeError(f"[FATAL] Expected 1500 CC terms, got {cc_count}")
+    print('[CHECK 2] Aspect counts match expected (10000/2000/1500) [OK]')
+    
+    # CHECK 3: Aspect boundaries (BP should be 0-9999, MF 10000-11999, CC 12000-13499)
+    boundary_checks = [
+        (0, 'BP'), (5000, 'BP'), (9999, 'BP'),
+        (10000, 'MF'), (11000, 'MF'), (11999, 'MF'),
+        (12000, 'CC'), (13000, 'CC'), (13499, 'CC')
+    ]
+    print('[CHECK 3] Boundary spot checks:')
+    for idx, expected_asp in boundary_checks:
+        actual_asp = aspects_map.get(top_terms[idx], 'UNK')
+        status = '[OK]' if actual_asp == expected_asp else '[FAIL]'
+        print(f'  idx={idx}: {top_terms[idx]}, expected={expected_asp}, actual={actual_asp} {status}')
+        if actual_asp != expected_asp:
+            raise RuntimeError(f"[FATAL] top_terms[{idx}]={top_terms[idx]} is {actual_asp}, expected {expected_asp}")
+    
+    # CHECK 4: Y_sparse has actual labels
+    total_positives = Y_sparse.nnz
+    proteins_with_labels = (np.array(Y_sparse.sum(axis=1)).ravel() > 0).sum()
+    print(f'[CHECK 4] Y_sparse stats: {total_positives:,} positive entries, {proteins_with_labels:,} proteins with labels')
+    if total_positives == 0:
+        raise RuntimeError("[FATAL] Y_sparse has no positive labels!")
+    
+    # CHECK 5: Labels per aspect region
+    bp_labels = Y_sparse[:, :10000].nnz
+    mf_labels = Y_sparse[:, 10000:12000].nnz
+    cc_labels = Y_sparse[:, 12000:].nnz
+    print(f'[CHECK 5] Labels per aspect: BP={bp_labels:,}, MF={mf_labels:,}, CC={cc_labels:,}')
+    
+    print('=' * 70)
+    print('[OK] All LogReg alignment checks passed!')
+    print('=' * 70 + '\n')
 
     # --- GLOBAL SCALING (FIX LEAKAGE) ---
     print("Fitting Global Scaler (Incremental)...")
@@ -255,35 +307,83 @@ else:
                 if HAS_GPU and hasattr(val_probs, 'get'): val_probs = val_probs.get()
                 oof_pred[idx_val, start:end] = val_probs
 
-                # Predict Test (Batched)
-                # SKIP TEST if QUICK_CHECK is on (for speed)
-                if not os.environ.get('QUICK_CHECK'):
-                    TEST_BS = 4096
-                    test_accum = np.zeros((X_test_mmap.shape[0], chunk_width), dtype=np.float32)
-                    for i in range(0, X_test_mmap.shape[0], TEST_BS):
-                        j = min(i + TEST_BS, X_test_mmap.shape[0])
-                        x_batch = scaler.transform(X_test_mmap[i:j]).astype(np.float32)
-                        if HAS_GPU: x_batch = cp.asarray(x_batch)
-                        
-                        p_batch = safe_predict_proba_gpu(clf, x_batch)
-                        if HAS_GPU and hasattr(p_batch, 'get'): p_batch = p_batch.get()
-                        test_accum[i:j] = p_batch
-                        
-                        del x_batch
-                    
-                    test_pred[:, start:end] += (test_accum / n_splits)
+                # NOTE: Test predictions are done AFTER fold loop using full-train model
+                # (not averaged across folds - that's wrong)
                 
                 # Cleanup
                 del clf, Y_tr_chunk
-                try: del test_accum
-                except: pass
 
                 if HAS_GPU: cp.get_default_memory_pool().free_all_blocks()
                 gc.collect()
+            
+            # Cleanup fold data
+            del X_tr_gpu, X_val_gpu
+            if HAS_GPU: cp.get_default_memory_pool().free_all_blocks()
+            gc.collect()
 
         oof_pred.flush()
+        _stage(f"Saved OOF: {lr_oof_path}")
+        
+        # ===== TEST PREDICTIONS: Train on FULL data, predict once =====
+        _stage(f"\n{aspect}: Training FULL model for test predictions...")
+        
+        # Scale full training data
+        if HAS_GPU:
+            X_full_gpu = cp.asarray(scaler.transform(X), dtype=cp.float32)
+        else:
+            X_full_gpu = scaler.transform(X).astype(np.float32)
+        
+        # Train on ALL data, predict test in chunks of terms
+        for start in tqdm(range(0, n_targets, TARGET_CHUNK), desc=f"{aspect} Test (full-train)"):
+            end = min(start + TARGET_CHUNK, n_targets)
+            chunk_cols = aspect_cols[start:end]
+            chunk_width = end - start
+            
+            # Get Y slice (Dense) - FULL training data
+            Y_full_chunk = Y_sparse[:, chunk_cols].toarray().astype(np.float32)
+            if HAS_GPU: Y_full_chunk = cp.asarray(Y_full_chunk)
+            
+            # Train model on FULL data
+            if HAS_GPU:
+                clf_full = cuOVR(cuLogReg(
+                    solver='qn', max_iter=1000, tol=1e-2,
+                    class_weight='balanced',
+                    output_type='cupy', verbose=False
+                ))
+            else:
+                clf_full = OneVsRestClassifier(SGDClassifier(
+                    loss='log_loss', max_iter=1000,
+                    class_weight='balanced',
+                    n_jobs=-1, random_state=42
+                ), n_jobs=-1)
+            
+            clf_full.fit(X_full_gpu, Y_full_chunk)
+            
+            # Predict test in batches
+            TEST_BS = 4096
+            for i in range(0, X_test_mmap.shape[0], TEST_BS):
+                j = min(i + TEST_BS, X_test_mmap.shape[0])
+                x_batch = scaler.transform(X_test_mmap[i:j]).astype(np.float32)
+                if HAS_GPU: x_batch = cp.asarray(x_batch)
+                
+                p_batch = safe_predict_proba_gpu(clf_full, x_batch)
+                if HAS_GPU and hasattr(p_batch, 'get'): p_batch = p_batch.get()
+                test_pred[i:j, start:end] = p_batch  # Direct assignment, not averaging!
+                
+                del x_batch
+                if HAS_GPU: cp.get_default_memory_pool().free_all_blocks()
+            
+            del clf_full, Y_full_chunk
+            if HAS_GPU: cp.get_default_memory_pool().free_all_blocks()
+            gc.collect()
+        
+        # Cleanup full training data
+        del X_full_gpu
+        if HAS_GPU: cp.get_default_memory_pool().free_all_blocks()
+        gc.collect()
+        
         test_pred.flush()
-        _stage(f"Saved {lr_oof_path}")
+        _stage(f"Saved Test: {lr_test_path}")
         
     # --- AUTO-OPTIMIZE THRESHOLDS ---
     print("\n=== Auto-Optimizing Thresholds ===")
@@ -335,8 +435,222 @@ else:
         print(f"  {aspect}: Best Thr={best_thr:.2f} (F1={best_f1:.4f})")
         best_thresholds[aspect] = float(best_thr)
 
-    # Save
+    # Save thresholds
     out_path = PRED_DIR / 'best_thresholds.json'
     with open(out_path, 'w') as f:
         json.dump(best_thresholds, f, indent=2)
     print(f"Saved optimal thresholds to {out_path}")
+    
+    # ===== COMBINE ASPECT FILES INTO SINGLE STACKER-COMPATIBLE FILE =====
+    print("\n=== Combining Aspect Files for Stacker ===")
+    
+    # Expected shapes
+    n_train = X.shape[0]
+    n_test = X_test_mmap.shape[0]
+    n_terms = len(top_terms)
+    
+    # Build aspect column indices (must match top_terms order)
+    aspect_col_ranges = {}
+    for asp in ['BP', 'MF', 'CC']:
+        cols = [i for i, t in enumerate(top_terms) if aspects_map.get(t) == asp]
+        if cols:
+            aspect_col_ranges[asp] = (min(cols), max(cols) + 1, len(cols))
+            print(f"  {asp}: columns [{min(cols)}, {max(cols)}], n={len(cols)}")
+    
+    # Allocate combined arrays
+    oof_combined = np.zeros((n_train, n_terms), dtype=np.float32)
+    test_combined = np.zeros((n_test, n_terms), dtype=np.float32)
+    
+    # Fill from per-aspect files
+    for asp in ['BP', 'MF', 'CC']:
+        oof_asp_path = PRED_DIR / f'oof_pred_logreg_{asp}.npy'
+        test_asp_path = PRED_DIR / f'test_pred_logreg_{asp}.npy'
+        
+        if not oof_asp_path.exists() or not test_asp_path.exists():
+            print(f"  [WARN] Missing {asp} files, skipping")
+            continue
+        
+        col_start, col_end, n_cols = aspect_col_ranges[asp]
+        
+        oof_asp = np.load(oof_asp_path)
+        test_asp = np.load(test_asp_path)
+        
+        # Verify shapes match
+        if oof_asp.shape != (n_train, n_cols):
+            raise RuntimeError(f"[FATAL] {asp} OOF shape {oof_asp.shape} != expected ({n_train}, {n_cols})")
+        if test_asp.shape != (n_test, n_cols):
+            raise RuntimeError(f"[FATAL] {asp} Test shape {test_asp.shape} != expected ({n_test}, {n_cols})")
+        
+        # Copy to combined array at correct column positions
+        oof_combined[:, col_start:col_end] = oof_asp
+        test_combined[:, col_start:col_end] = test_asp
+        print(f"  {asp}: copied to columns [{col_start}:{col_end}]")
+        
+        del oof_asp, test_asp
+        gc.collect()
+    
+    # Save combined files
+    oof_combined_path = PRED_DIR / 'oof_pred_logreg.npy'
+    test_combined_path = PRED_DIR / 'test_pred_logreg.npy'
+    
+    np.save(oof_combined_path, oof_combined)
+    np.save(test_combined_path, test_combined)
+    
+    print(f"\nSaved combined files:")
+    print(f"  OOF:  {oof_combined_path} shape={oof_combined.shape}")
+    print(f"  Test: {test_combined_path} shape={test_combined.shape}")
+    
+    # Final verification
+    print("\n[VERIFY] Combined file sanity check:")
+    print(f"  OOF non-zero: {(oof_combined > 0).sum():,} ({100*(oof_combined > 0).sum()/oof_combined.size:.2f}%)")
+    print(f"  Test non-zero: {(test_combined > 0).sum():,} ({100*(test_combined > 0).sum()/test_combined.size:.2f}%)")
+    print(f"  OOF range: [{oof_combined.min():.4f}, {oof_combined.max():.4f}]")
+    print(f"  Test range: [{test_combined.min():.4f}, {test_combined.max():.4f}]")
+    
+    # ===== FINAL EVALUATION: Per-Aspect CAFA F1 (like KNN) =====
+    print('\n' + '=' * 70)
+    print('[EVALUATION] Per-Aspect CAFA F1 (OOF) - LogReg')
+    print('=' * 70)
+    
+    # Build aspect indices
+    bp_term_idx = np.array([i for i, t in enumerate(top_terms) if aspects_map.get(t) == 'BP'])
+    mf_term_idx = np.array([i for i, t in enumerate(top_terms) if aspects_map.get(t) == 'MF'])
+    cc_term_idx = np.array([i for i, t in enumerate(top_terms) if aspects_map.get(t) == 'CC'])
+    
+    # Use optimized thresholds (or defaults)
+    eval_thresholds = {
+        'BP': best_thresholds.get('BP', 0.40),
+        'MF': best_thresholds.get('MF', 0.40),
+        'CC': best_thresholds.get('CC', 0.30)
+    }
+    print(f'[INFO] Using thresholds: {eval_thresholds}')
+    
+    # Get Y as dense for evaluation
+    Y_dense = Y_sparse.toarray()
+    
+    aspect_f1 = {}
+    for asp, thr, idx in [
+        ('BP', eval_thresholds['BP'], bp_term_idx),
+        ('MF', eval_thresholds['MF'], mf_term_idx),
+        ('CC', eval_thresholds['CC'], cc_term_idx),
+    ]:
+        if len(idx) == 0:
+            print(f'  {asp}: No terms found, skipping')
+            continue
+        
+        # Get true labels and predictions for this aspect
+        y_true = Y_dense[:, idx]
+        y_score = oof_combined[:, idx]
+        y_pred = (y_score >= thr).astype(np.int8)
+        
+        # Calculate per-protein F1 (CAFA metric)
+        f1_sum = 0.0
+        n_proteins = y_true.shape[0]
+        
+        for i in range(n_proteins):
+            y_t = y_true[i]
+            y_p = y_pred[i]
+            
+            tp = int(((y_p == 1) & (y_t == 1)).sum())
+            fp = int(((y_p == 1) & (y_t == 0)).sum())
+            fn = int(((y_p == 0) & (y_t == 1)).sum())
+            
+            precision = tp / (tp + fp) if (tp + fp) > 0 else 0.0
+            recall = tp / (tp + fn) if (tp + fn) > 0 else 0.0
+            f1 = 2 * precision * recall / (precision + recall) if (precision + recall) > 0 else 0.0
+            f1_sum += f1
+        
+        f1_avg = f1_sum / n_proteins
+        aspect_f1[asp] = f1_avg
+        print(f'  {asp}: F1={f1_avg:.4f} (threshold={thr:.2f}, n_terms={len(idx)})')
+    
+    # CAFA F1 = average of aspect F1s
+    if len(aspect_f1) > 0:
+        cafa_f1 = sum(aspect_f1.values()) / len(aspect_f1)
+        print(f'\n  CAFA F1: {cafa_f1:.4f}')
+    print('=' * 70)
+    
+    del Y_dense
+    gc.collect()
+    
+    # ===== GENERATE SUBMISSION FILES (with and without normalisation) =====
+    LOGREG_GENERATE_SUBMISSION = bool(globals().get('LOGREG_GENERATE_SUBMISSION', True))
+    
+    if LOGREG_GENERATE_SUBMISSION:
+        print('\n[LogReg] Generating submission files (IA-weighted ranking)...')
+        
+        # Load IA weights for competition-optimal term selection
+        ia_path = WORK_ROOT / 'IA.tsv'
+        if not ia_path.exists():
+            ia_path = WORK_ROOT / 'Train' / 'IA.tsv'
+        if not ia_path.exists():
+            ia_path = Path('IA.tsv')
+        
+        ia_weights = {}
+        if ia_path.exists():
+            ia_df = pd.read_csv(ia_path, sep='\t', header=None, names=['term', 'ia'])
+            ia_weights = dict(zip(ia_df['term'], ia_df['ia']))
+            print(f'  Loaded IA weights: {len(ia_weights):,} terms, range=[{min(ia_weights.values()):.2f}, {max(ia_weights.values()):.2f}]')
+        else:
+            print(f'  [WARN] IA.tsv not found, falling back to confidence-only ranking')
+        
+        # Build IA vector aligned to top_terms
+        ia_vec = np.array([ia_weights.get(t, 1.0) for t in top_terms], dtype=np.float32)
+        
+        # Load test protein IDs
+        test_seq_path = WORK_ROOT / 'parsed' / 'test_seq.feather'
+        _test_seq = pd.read_feather(test_seq_path)
+        _test_ids = _test_seq['id'].astype(str).str.extract(r'\|(.*?)\|')[0].fillna(_test_seq['id']).tolist()
+        
+        # Minimum confidence threshold to avoid noise
+        MIN_CONF = 0.05
+        MAX_TERMS_PER_PROTEIN = 1500  # Competition rule
+        
+        # ===== GENERATE TWO VERSIONS: RAW vs NORMALISED =====
+        # Per-protein normalisation: scores / max(scores) - calibrates across proteins
+        # A/B test both on leaderboard to see which scores better
+        
+        # Compute per-protein normalised scores
+        row_max = test_combined.max(axis=1, keepdims=True)
+        test_normalised = np.divide(test_combined, row_max, where=row_max > 0, out=np.zeros_like(test_combined))
+        
+        print(f'  Raw scores range: [{test_combined.min():.4f}, {test_combined.max():.4f}]')
+        print(f'  Normalised scores range: [{test_normalised.min():.4f}, {test_normalised.max():.4f}]')
+        
+        for variant_name, scores_matrix in [('raw', test_combined), ('norm', test_normalised)]:
+            rows = []
+            for i, pid in enumerate(tqdm(_test_ids, desc=f"Building submission ({variant_name})")):
+                scores = scores_matrix[i, :]  # All 13500 terms
+                
+                # Filter by minimum confidence
+                above_min = scores >= MIN_CONF
+                if above_min.sum() == 0:
+                    continue
+                
+                # Get indices and scores above threshold
+                valid_idx = np.where(above_min)[0]
+                valid_scores = scores[valid_idx]
+                valid_ia = ia_vec[valid_idx]
+                
+                # Compute expected value: confidence × IA
+                expected_value = valid_scores * valid_ia
+                
+                # Sort by expected value (descending), take top 1500
+                order = np.argsort(expected_value)[::-1][:MAX_TERMS_PER_PROTEIN]
+                
+                for j in order:
+                    term_idx = valid_idx[j]
+                    conf = valid_scores[j]
+                    rows.append(f'{pid}\t{top_terms[term_idx]}\t{np.clip(conf, 0.001, 1.0):.3f}')
+            
+            submission_path = WORK_ROOT / f'submission_logreg_{variant_name}.tsv'
+            with open(submission_path, 'w') as f:
+                f.write('\n'.join(rows))
+            
+            avg_terms = len(rows) / len(_test_ids) if _test_ids else 0
+            print(f'  Saved: {submission_path} ({len(rows):,} rows, avg {avg_terms:.1f} terms/protein)')
+        
+        del test_normalised
+        gc.collect()
+    
+    print("\n[LogReg] ═══ COMPLETE ═══")

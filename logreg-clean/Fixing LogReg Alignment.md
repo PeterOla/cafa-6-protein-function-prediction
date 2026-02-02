@@ -2,12 +2,42 @@
 
 ## Executive Summary
 
-The Logistic Regression model was performing poorly (F1 ≈ 0.0003) due to **three critical errors**, primarily `class_weight` misuse. We rebuilt the script `logreg_esm2_3b_13500.py` with robust fixes.
-**Final Optimization**: Using `class_weight='balanced'` yielded a massive performance jump to **F1 = 0.0525** (>175x baseline).
+The Logistic Regression model was performing poorly (F1 ≈ 0.0003 → 0.0026) due to **data alignment issues** with the multi-modal `X_train_mmap.npy` embeddings. The fix was to use the **exact same data loading approach as the working KNN cell**.
 
 ---
 
-## Part 1: Critical Bugs Identified & Fixed
+## Part 4: KNN-Aligned Data Loading Fix (2026-02-01)
+
+### 🔴 **ROOT CAUSE: X_train_mmap vs Direct Embedding Alignment**
+
+| Component | Old (Broken) | New (Fixed) |
+|-----------|--------------|-------------|
+| **X embeddings** | `X_train_mmap.npy` (multi-modal) | `esm2_3b_train.npy` (direct) |
+| **Y matrix source** | `train_terms.parquet` | `train_terms.tsv` |
+| **Y building method** | Vectorised pandas | Row-by-row iteration |
+| **ID cleaning** | `clean_id_vec()` | `_clean_id()` (KNN-identical) |
+
+### Why This Bug Occurred
+
+The `X_train_mmap.npy` file is a concatenation of multiple embedding modalities built in Cell 13a. Its protein ordering may differ from the `train_seq.feather` ordering used to build the label matrix. KNN avoids this by loading embeddings **directly** from the per-modality `.npy` files.
+
+### The Fix
+
+1. **Load ESM2-3B embeddings directly**: `esm2_3b_train.npy` and `esm2_3b_test.npy`
+2. **Use identical data loading as KNN**: Same `_clean_id()` function, same file sources
+3. **Build Y from TSV**: Row-by-row iteration matching KNN exactly
+
+### Expected Impact
+
+| Metric | Before Fix | After Fix |
+|--------|------------|-----------|
+| BP F1 | 0.0011 | ~0.12 (KNN-like) |
+| MF F1 | 0.0027 | ~0.34 (KNN-like) |
+| CC F1 | 0.0039 | ~0.30 (KNN-like) |
+
+---
+
+## Part 1: Historical Context (Early Fixes)
 
 ### 1. 🔴 `class_weight` Misuse in OVR
 **Issue:** Code passed a dictionary of weights to OVR, corrupting the solver.
@@ -17,7 +47,7 @@ The Logistic Regression model was performing poorly (F1 ≈ 0.0003) due to **thr
 **Issue:** Scaler refit per-fold caused test data drift.
 **Fix:** Implemented **incremental global scaling** (`partial_fit`) for consistent features.
 
-### 3. 🟡 Y Matrix Alignment
+### 3. 🟡 Y Matrix Alignment (Initial)
 **Issue:** Potential ID scrambling.
 **Fix:** Implemented **Vectorized ID Cleaning** separately, ensuring parity with KNN logic while keeping speed.
 
@@ -27,7 +57,7 @@ The Logistic Regression model was performing poorly (F1 ≈ 0.0003) due to **thr
 
 ---
 
-## Part 2: Validation Results (Top 50 Terms)
+## Part 2: Validation Results (Top 50 Terms - Historical)
 
 | Run Configuration | best F1 | improvement |
 | :--- | :--- | :--- |
@@ -35,21 +65,17 @@ The Logistic Regression model was performing poorly (F1 ≈ 0.0003) due to **thr
 | No Class Weight | 0.0194 | 64x |
 | **Balanced Class Weight** | **0.0525** | **175x** |
 
-**Integrated Notebook Cell Verification:**
-- Script: `cell_13c_integrated.py`
-- Result: **F1 = 0.0541** (Matches optimization results)
-- Status: **VERIFIED & READY**
+**Note:** These results were for Top 50 Terms only, not all 13,500.
 
 ---
 
 ## Part 3: Deployment
 
-The verified logic is encapsulated in `logreg-clean/cell_13c_integrated.py`.
-This script:
-1. Auto-detects OBO files.
-2. Auto-generates memmaps from embeddings if missing.
-3. Uses `StratifiedKFold` and Global Scaling.
-4. Uses `class_weight='balanced'` for max F1.
-5. Is drop-in compatible with `05_cafa_e2e.ipynb`.
+The verified logic is now in `05_cafa_e2e.ipynb` Cell 13c (LogReg).
+Key changes:
+1. Uses `esm2_3b_train.npy` directly (not `X_train_mmap.npy`)
+2. Uses `train_terms.tsv` (not parquet)
+3. Uses identical `_clean_id()` function as KNN cell
+4. PyTorch GPU linear layer for parallel training
 
-*Last updated: 2026-01-31*
+*Last updated: 2026-02-01*
